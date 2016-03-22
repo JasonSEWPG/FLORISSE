@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # turbineY = np.array([1024.7, 1335.3, 1387.2, 1697.8, 2060.3, 1749.7])   # m
 
     # Scaling grid case
-    nRows = int(sys.argv[1])     # number of rows and columns in grid
+    nRows = 10    # number of rows and columns in grid
     spacing = 5     # turbine grid spacing in diameters
 
     # Set up position arrays
