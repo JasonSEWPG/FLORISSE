@@ -10,7 +10,7 @@ if __name__ == "__main__":
     # define turbine locations in global reference frame
     turbineX = np.array([1164.7, 947.2,  1682.4, 1464.9, 1982.6, 2200.1])
     turbineY = np.array([1024.7, 1335.3, 1387.2, 1697.8, 2060.3, 1749.7])
-    turbineZ = np.array([150, 150, 150, 150, 150, 150])
+    turbineZ = np.array([150,150,150,150,150,150])
 
     # initialize input variable arrays
     nTurbs = turbineX.size
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     wind_frequency = 0.1    # probability of wind in this direction at this speed
 
     # set up problem
-    prob = Problem(root=AEPGroupFLORIS(nTurbs, resolution=0, differentiable=False))
+    prob = Problem(root=AEPGroupFLORIS(nTurbs, resolution=0, differentiable=True))
 
     # initialize problem
     prob.setup()

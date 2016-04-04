@@ -284,7 +284,7 @@ class floris_wcent_wdiam(Component):
         yaw_deg = params['yaw%i' % self.direction_id]
         # print yaw_deg, Ct
         if self.differentiable:
-            wakeCentersYT_vec, wakeCamtersZT_vec, wakeDiametersT_vec = _floris.floris_wcent_wdiam(kd, initialWakeDisplacement, \
+            wakeCentersYT_vec, wakeCentersZT_vec, wakeDiametersT_vec = _floris.floris_wcent_wdiam(kd, initialWakeDisplacement, \
                                   initialWakeAngle, ke, keCorrCT, Region2CT, yaw_deg, Ct, turbineXw, turbineYw, turbineZ, \
                                   rotorDiameter, me, bd, useWakeAngle, adjustInitialWakeDiamToYaw) #TODO added wakeCentersZT_vec here, and turbineZ
         else:
@@ -498,10 +498,10 @@ class floris_overlap(Component):
         #                                 params['wakeDiametersT'], params['wakeCentersYT'],
         #                                 params['floris_params:cos_spread'], self.splineshift, wakeOverlapTRel_vecb, cosFac_vecb)
         #TODO TODO TODO TODO What to do here????CHANGE HERE. NEED TO RUN TAPENADE AGAIN?
-        turbineYwb, turbineZb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
-            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['turbineZ'], params['rotorDiameter'],
+        turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
+            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
                                         params['wakeDiametersT'], params['wakeCentersYT'],
-                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ']
+                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ'] TOOK OUT
 
         J = {}
         #TODO TODO TODO TODO what to do here?
@@ -522,10 +522,10 @@ class floris_overlap(Component):
         #                                 params['floris_params:cos_spread'], self.splineshift, wakeOverlapTRel_vecb, cosFac_vecb)
         #
         #TODO TODO TODO TODO CHANGE HERE
-        turbineYwb, turbineZb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
-            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['turbineZ'], params['rotorDiameter'],
+        turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
+            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
                                         params['wakeDiametersT'], params['wakeCentersYT'],
-                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ']
+                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ'] TOOK OUT
         #TODO TODO TODO TODO what to do here?
         # construct Jacobian of floris_overlap
         J['cosFac', 'turbineYw'] = turbineYwb

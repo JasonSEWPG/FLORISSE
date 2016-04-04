@@ -25,13 +25,13 @@ subroutine Hermite_Spline(x, x0, x1, y0, dy0, y1, dy1, y)
         
     ! define precision to be the standard for a double precision ! on local system
     integer, parameter :: dp = kind(0.d0)
-
+    
     ! in
     real(dp), intent(in) :: x, x0, x1, y0, dy0, y1, dy1
-
+    
     ! out
     real(dp), intent(out) :: y !, dy_dx
-
+    
     ! local
     real(dp) :: c3, c2, c1, c0
 
@@ -67,7 +67,7 @@ end subroutine Hermite_Spline
 
 
 subroutine calcOverlapAreas(nTurbines, turbineX, turbineY, turbineZ, rotorDiameter, wakeDiameters, &
-                            wakeCentersY, wakeCentersZ, wakeOverlapTRel_m) !TODO added turbineZ, wakeCentersZ
+                            & wakeCentersY, wakeCentersZ, wakeOverlapTRel_m) !TODO added turbineZ, wakeCentersZ
 !    calculate overlap of rotors and wake zones (wake zone location defined by wake 
 !    center and wake diameter)
 !   turbineX,turbineY is x,y-location of center of rotor
@@ -83,7 +83,6 @@ subroutine calcOverlapAreas(nTurbines, turbineX, turbineY, turbineZ, rotorDiamet
 
     ! in
     integer, intent(in) :: nTurbines
-
     real(dp), dimension(nTurbines), intent(in) :: turbineX, turbineY, turbineZ, rotorDiameter !TODO Added turbineZ
     real(dp), dimension(nTurbines, nTurbines, 3), intent(in) :: wakeDiameters !dimension(wake start point, point of interest, 3?)
     real(dp), dimension(nTurbines, nTurbines), intent(in) :: wakeCentersY, wakeCentersZ !TODO added wakeCentersZ
@@ -93,9 +92,8 @@ subroutine calcOverlapAreas(nTurbines, turbineX, turbineY, turbineZ, rotorDiamet
 
     ! local
     integer :: turb, turbI, zone
-    real(dp), parameter :: pi = 3.141592653589793_dp 
-    real(dp), parameter :: tol = 0.000001_dp
-    real(dp) :: OVdYd, OVr, OVRR, OVL, OVz 
+    real(dp), parameter :: tol = 0.000001_dp, pi = 3.141592653589793_dp
+    real(dp) :: OVdYd, OVr, OVRR, OVL, OVz
     !OVdYd=distance from wake center to rotor center, OVr=rotor diameter, OVRR=wake diameter, OVL=5
     real(dp), dimension(nTurbines, nTurbines, 3) :: wakeOverlap
         
@@ -105,7 +103,7 @@ subroutine calcOverlapAreas(nTurbines, turbineX, turbineY, turbineZ, rotorDiamet
     do turb = 1, nTurbines
         do turbI = 1, nTurbines
             if (turbineX(turbI) > turbineX(turb)) then
-                OVdYd = sqrt((wakeCentersY(turbI, turb)-turbineY(turbI))**2+(wakeCenters(turbI, turb)-turbineZ(turbI))**2)   ! distance between wake center and rotor center TODO I made this the hypotenuse of dy and dz rather than just dy. I used just turbineZ rather than wakeCentersZ
+                OVdYd = sqrt((wakeCentersY(turbI, turb)-turbineY(turbI))**2+(wakeCentersZ(turbI, turb)-turbineZ(turbI))**2)   ! distance between wake center and rotor center TODO I made this the hypotenuse of dy and dz rather than just dy. I used just turbineZ rather than wakeCentersZ
                 OVr = rotorDiameter(turbI)/2                        ! rotor diameter
                 do zone = 1, 3
                     OVRR = wakeDiameters(turbI, turb, zone)/2.0_dp        ! wake diameter
@@ -211,35 +209,36 @@ subroutine CTtoAxialInd(CT, nTurbines, axial_induction)
     
 end subroutine CTtoAxialInd
     
-! TODO Needs the z coordinate as well as y
+!TODO Needs the z coordinate as well as y
 subroutine floris_wcent_wdiam(nTurbines, kd, initialWakeDisplacement, &
                               initialWakeAngle, ke_in, keCorrCT, Region2CT, yaw_deg, Ct, &
                               turbineXw, turbineYw, turbineZ, rotorDiameter, me, bd, useWakeAngle, &
-                              adjustInitialWakeDiamToYaw, wakeCentersYT_vec, wakeCentersZT_vec &
+                              adjustInitialWakeDiamToYaw, wakeCentersYT_vec, wakeCentersZT_vec, &
                               wakeDiametersT_vec) !TODO added turbineZ, wakeCentsersZT_vec 
-                              
+
     ! independent variables: yaw_deg Ct turbineXw turbineYw rotorDiameter
     ! dependent variables: wakeCentersYT_vec wakeDiametersT_vec
-    
+
     implicit none
-    
+
     ! define precision to be the standard for a double precision ! on local system
     integer, parameter :: dp = kind(0.d0)
-    
+
     ! in
     integer, intent(in) :: nTurbines
     real(dp), intent(in) :: kd, initialWakeDisplacement, initialWakeAngle, ke_in
     real(dp), intent(in) :: keCorrCT, Region2CT, bd
-    real(dp), dimension(nTurbines), intent(in) :: yaw_deg, Ct, turbineXw, turbineYw, turbineZ !TODO added turbineZ 
+    real(dp), dimension(nTurbines), intent(in) :: yaw_deg, Ct, turbineXw, turbineYw 
+    real(dp), dimension(nTurbines), intent(in) :: turbineZ !TODO added turbineZ 
     real(dp), dimension(nTurbines), intent(in) :: rotorDiameter
     real(dp), dimension(3), intent(in) :: me
     logical, intent(in) :: useWakeAngle, adjustInitialWakeDiamToYaw
-    
+
     ! out
     real(dp), dimension(nTurbines*nTurbines), intent(out) :: wakeCentersYT_vec
     real(dp), dimension(nTurbines*nTurbines), intent(out) :: wakeCentersZT_vec !TODO added here
     real(dp), dimension(3*nTurbines*nTurbines), intent(out) :: wakeDiametersT_vec
-    
+
     ! local
     real(dp) :: spline_bound ! in rotor diameters
     real(dp), dimension(nTurbines) :: ke, yaw
@@ -260,24 +259,24 @@ subroutine floris_wcent_wdiam(nTurbines, kd, initialWakeDisplacement, &
 !     print *, "ke_in", ke_in   
 !     print *, "initialWakeDisplacement(smooth) = ", initialWakeDisplacement
     spline_bound = 1.0_dp
-       
+
     yaw = yaw_deg*pi/180.0_dp
-        
+
     ! calculate y-locations of wake centers in wind ref. frame
     wakeCentersYT_mat = 0.0_dp
     wakeCentersZT_mat = 0.0_dp !TODO added here
-    
+
     do turb = 1, nTurbines
         wakeAngleInit = 0.5_dp*sin(yaw(turb))*Ct(turb)
-        
+
         if (useWakeAngle) then
             wakeAngleInit = wakeAngleInit + initialWakeAngle*pi/180.0_dp
         end if
-        
+
         do turbI = 1, nTurbines
             deltax = turbineXw(turbI) - turbineXw(turb)
             factor = (2.0_dp*kd*deltax/rotorDiameter(turb)) + 1.0_dp
-            
+
             if (turbineXw(turb) < turbineXw(turbI)) then
 
                 !These are the z calculations
@@ -323,86 +322,86 @@ subroutine floris_wcent_wdiam(nTurbines, kd, initialWakeDisplacement, &
             end if
 
         end do
-        
+
     end do
-        
+
     do turbI = 1, nTurbines
         wakeCentersYT_vec(nTurbines*(turbI-1)+1:nTurbines*(turbI-1)+nTurbines) &
                                  = wakeCentersYT_mat(turbI, :)
         wakeCentersZT_vec(nTurbines*(turbI-1)+1:nTurbines*(turbI-1)+nTurbines) & !TODO added here
                                  = wakeCentersZT_mat(turbI, :)
     end do
-    
+
     !adjust k_e to C_T, adjusted to yaw
     ke = ke_in + keCorrCT*(Ct-Region2CT)
-    
+
     wakeDiametersT_mat = 0.0_dp
 
     do turb = 1, nTurbines
-        
+
         if (adjustInitialWakeDiamToYaw) then
             wakeDiameter0 = rotorDiameter(turb)*cos(yaw(turb))
         else
             wakeDiameter0 = rotorDiameter(turb)        
         end if
-        
+
         do turbI = 1, nTurbines
-        
+
             ! turbine separation
             deltax = turbineXw(turbI) - turbineXw(turb)            
-            
+
             ! x position of interest
             x = turbineXw(turbI)                         
-              
+
             zone = 1
             ! define centerpoint of spline
             zeroloc = turbineXw(turb) - wakeDiameter0/(2.0_dp*ke(turb)*me(zone))
-            
+
             if (zeroloc + spline_bound*rotorDiameter(turb) < turbineXw(turbI)) then ! check this
                 wakeDiametersT_mat(turbI, turb, zone) = 0.0_dp
-            
+
             else if (zeroloc - spline_bound*rotorDiameter(turb) < turbineXw(turbI)) then !check this
-                               
+
                 !!!!!!!!!!!!!!!!!!!!!! calculate spline values !!!!!!!!!!!!!!!!!!!!!!!!!!
-                
+
                 ! position of upwind point
                 x1 = zeroloc - spline_bound*rotorDiameter(turb)
-                
+
                 ! diameter of upwind point
                 y1 = wakeDiameter0+2.0_dp*ke(turb)*me(zone)*(x1 - turbineXw(turb))
-                                
+
                 ! slope at upwind point
                 dy1 = 2.0_dp*ke(turb)*me(zone)
-                
+
                 ! position of downwind point
                 x2 = zeroloc+spline_bound*rotorDiameter(turb)             
 
                 ! diameter at downwind point
                 y2 = 0.0_dp
-                
+
                 ! slope at downwind point
                 dy2 = 0.0_dp
-                
+
                 ! solve for the wake zone diameter and its derivative w.r.t. the downwind
                 ! location at the point of interest
                 call Hermite_Spline(x, x1, x2, y1, dy1, y2, dy2, wakeDiametersT_mat(turbI, turb, zone))
-            
+
             else if (turbineXw(turb) < turbineXw(turbI)) then
                 wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0+2.0_dp*ke(turb)*me(zone)*deltax            
             end if
-            
-                        
+
+
             if (turbineXw(turb) < turbineXw(turbI)) then
                 zone = 2
                 wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0 + 2.0_dp*ke(turb)*me(zone)*deltax                   
                 zone = 3
                 wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0+2.0_dp*ke(turb)*me(zone)*deltax
             end if      
-            
+
         end do
-        
+
     end do
-    
+
     do turbI = 1, nTurbines
         wakeDiametersT_vec(3*nTurbines*(turbI-1)+1:3*nTurbines*(turbI-1)+nTurbines) &
                                  = wakeDiametersT_mat(turbI, :, 1)
@@ -411,8 +410,8 @@ subroutine floris_wcent_wdiam(nTurbines, kd, initialWakeDisplacement, &
         wakeDiametersT_vec(3*nTurbines*(turbI-1)+2*nTurbines+1:nTurbines*(turbI-1) &
                                    +3*nTurbines) = wakeDiametersT_mat(turbI, :, 3) 
     end do
-    
-    
+
+
 end subroutine floris_wcent_wdiam
 
 
