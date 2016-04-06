@@ -74,7 +74,7 @@ if __name__ == "__main__":
     axialInduction = np.zeros(nTurbs)
     Ct = np.zeros(nTurbs)
     Cp = np.zeros(nTurbs)
-    generator_efficiency = np.zeros(nTurbs)
+    generatorEfficiency = np.zeros(nTurbs)
     yaw = np.zeros(nTurbs)
     minSpacing = 2.                         # number of rotor diameters
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         axialInduction[turbI] = 1.0/3.0
         Ct[turbI] = 4.0*axialInduction[turbI]*(1.0-axialInduction[turbI])
         Cp[turbI] = 0.7737/0.944 * 4.0 * 1.0/3.0 * np.power((1 - 1.0/3.0), 2)
-        generator_efficiency[turbI] = 0.944
+        generatorEfficiency[turbI] = 0.944
         yaw[turbI] = 0.     # deg.
 
     # Define flow properties
@@ -94,9 +94,9 @@ if __name__ == "__main__":
     windFrequencies = np.ones_like(windDirections)*1.0/nDirections
 
     # initialize problem
-    prob = Problem(impl=impl, root=OptAEP(nTurbines=nTurbs, nDirections=windDirections.size, resolution=0,
+    prob = Problem(impl=impl, root=OptAEP(nTurbines=nTurbs, nDirections=windDirections.size,
                                           minSpacing=minSpacing, use_rotor_components=use_rotor_components,
-                                          datasize=datasize, optimizingLayout=optimizingLayout))
+                                          datasize=datasize))
 
     # set up optimizer
     prob.driver = pyOptSparseDriver()
@@ -131,28 +131,16 @@ if __name__ == "__main__":
     # assign values to constant inputs (not design variables)
     prob['rotorDiameter'] = rotorDiameter
     prob['axialInduction'] = axialInduction
-    prob['generator_efficiency'] = generator_efficiency
+    prob['generatorEfficiency'] = generatorEfficiency
     prob['windSpeeds'] = np.ones(nDirections)*wind_speed
     prob['air_density'] = air_density
     prob['windDirections'] = windDirections
-    prob['windrose_frequencies'] = windFrequencies
+    prob['windFrequencies'] = windFrequencies
 
     if use_rotor_components:
-        # for i in range(0, nDirections):
-        #     exec('myFloris.initVelocitiesTurbines_%d = np.ones_like(turbineX)*windrose_speeds[%d]' % (i, i))
-        # myFloris.initVelocitiesTurbines = np.ones_like(turbineX)*windrose_speeds
-        # myFloris.windSpeedToCPCT = NREL5MWCPCT
         prob['gen_params:windSpeedToCPCT_CP'] = NREL5MWCPCT['CP']
         prob['gen_params:windSpeedToCPCT_CT'] = NREL5MWCPCT['CT']
         prob['gen_params:windSpeedToCPCT_wind_speed'] = NREL5MWCPCT['wind_speed']
-        prob['floris_params:ke'] = 0.05
-        prob['floris_params:kd'] = 0.17
-        prob['floris_params:aU'] = 12.0
-        prob['floris_params:bU'] = 1.3
-        prob['floris_params:initialWakeAngle'] = 3.0
-        prob['floris_params:useaUbU'] = True
-        prob['floris_params:useWakeAngle'] = True
-        prob['floris_params:adjustInitialWakeDiamToYaw'] = False
     else:
         prob['Ct_in'] = Ct
         prob['Cp_in'] = Cp
@@ -169,31 +157,32 @@ if __name__ == "__main__":
     prob.run()
     toc = time.time()
 
-    # print the results
-    mpi_print(prob, ('FLORIS Opt. calculation took %.03f sec.' % (toc-tic)))
+    if prob.root.comm.rank == 0:
+        # print the results
+        mpi_print(prob, ('FLORIS Opt. calculation took %.03f sec.' % (toc-tic)))
 
-    for direction_id in range(0, windDirections.size):
-        mpi_print(prob,  'yaw%i (deg) = ' % direction_id, prob['yaw%i' % direction_id])
-    # for direction_id in range(0, windDirections.size):
-    #     mpi_print(prob,  'velocitiesTurbines%i (m/s) = ' % direction_id, prob['velocitiesTurbines%i' % direction_id])
-    # for direction_id in range(0, windDirections.size):
-    #     mpi_print(prob,  'wt_power%i (kW) = ' % direction_id, prob['wt_power%i' % direction_id])
+        for direction_id in range(0, windDirections.size):
+            mpi_print(prob,  'yaw%i (deg) = ' % direction_id, prob['yaw%i' % direction_id])
+        # for direction_id in range(0, windDirections.size):
+        #     mpi_print(prob,  'velocitiesTurbines%i (m/s) = ' % direction_id, prob['velocitiesTurbines%i' % direction_id])
+        # for direction_id in range(0, windDirections.size):
+        #     mpi_print(prob,  'wt_power%i (kW) = ' % direction_id, prob['wt_power%i' % direction_id])
 
-    mpi_print(prob,  'turbine X positions in wind frame (m): %s' % prob['turbineX'])
-    mpi_print(prob,  'turbine Y positions in wind frame (m): %s' % prob['turbineY'])
-    mpi_print(prob,  'wind farm power in each direction (kW): %s' % prob['power_directions'])
-    mpi_print(prob,  'AEP (kWh): %s' % prob['AEP'])
+        mpi_print(prob,  'turbine X positions in wind frame (m): %s' % prob['turbineX'])
+        mpi_print(prob,  'turbine Y positions in wind frame (m): %s' % prob['turbineY'])
+        mpi_print(prob,  'wind farm power in each direction (kW): %s' % prob['dirPowers'])
+        mpi_print(prob,  'AEP (kWh): %s' % prob['AEP'])
 
-    xbounds = [min(turbineX), min(turbineX), max(turbineX), max(turbineX), min(turbineX)]
-    ybounds = [min(turbineY), max(turbineY), max(turbineY), min(turbineY), min(turbineX)]
+        xbounds = [min(turbineX), min(turbineX), max(turbineX), max(turbineX), min(turbineX)]
+        ybounds = [min(turbineY), max(turbineY), max(turbineY), min(turbineY), min(turbineX)]
 
-    plt.figure()
-    plt.plot(turbineX, turbineY, 'ok', label='Original')
-    plt.plot(prob['turbineX'], prob['turbineY'], 'og', label='Optimized')
-    plt.plot(xbounds, ybounds, ':k')
-    for i in range(0, nTurbs):
-        plt.plot([turbineX[i], prob['turbineX'][i]], [turbineY[i], prob['turbineY'][i]], '--k')
-    plt.legend()
-    plt.xlabel('Turbine X Position (m)')
-    plt.ylabel('Turbine Y Position (m)')
-    plt.show()
+        plt.figure()
+        plt.plot(turbineX, turbineY, 'ok', label='Original')
+        plt.plot(prob['turbineX'], prob['turbineY'], 'og', label='Optimized')
+        plt.plot(xbounds, ybounds, ':k')
+        for i in range(0, nTurbs):
+            plt.plot([turbineX[i], prob['turbineX'][i]], [turbineY[i], prob['turbineY'][i]], '--k')
+        plt.legend()
+        plt.xlabel('Turbine X Position (m)')
+        plt.ylabel('Turbine Y Position (m)')
+        plt.show()

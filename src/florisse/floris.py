@@ -1,25 +1,30 @@
 import numpy as np
 
 from openmdao.api import Group, Component, Problem, IndepVarComp, ParamComp, ParallelGroup
-from openmdao.api import NLGaussSeidel, ScipyGMRES
+from openmdao.api import NLGaussSeidel, ScipyGMRES\
 
 from GeneralWindFarmComponents import WindFrame, AdjustCtCpYaw, MUX, WindFarmAEP, DeMUX, \
-    CPCT_Interpolate_Gradients_Smooth, WindDirectionPower, add_gen_params_IdepVarComps
+    CPCT_Interpolate_Gradients_Smooth, WindDirectionPower, add_gen_params_IdepVarComps, \
+    CPCT_Interpolate_Gradients
 
+from florisse import config
 import _floris
 import _florisDiscontinuous
+
 # import _florisHubSmooth as _floris
 
+import mpi4py as mpi
 
-def add_floris_parameters(openmdao_comp):
-    # altering the values in this function will have no effect during optimization. TO change defaults permanently,
+
+def add_floris_parameters(openmdao_comp, use_rotor_components=False):
+    # altering the values in this function will have no effect during optimization. To change defaults permanently,
     # alter the values in add_floris_IndepVarComps().
 
-    ###################   wake deflection   ##################
+    # ##################   wake deflection   ##################
 
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_comp.add_param('floris_params:kd', 0.15,
+    openmdao_comp.add_param('floris_params:kd', 0.15 if not use_rotor_components else 0.17, pass_by_obj=True,
                             desc='model parameter that defines the sensitivity of the wake deflection to yaw')
     openmdao_comp.add_param('floris_params:initialWakeDisplacement', -4.5, pass_by_obj=True,
                             desc='defines the wake at the rotor to be slightly offset from the rotor. This is'
@@ -27,42 +32,42 @@ def add_floris_parameters(openmdao_comp):
     openmdao_comp.add_param('floris_params:bd', -0.01, pass_by_obj=True,
                             desc='defines rate of wake displacement if initialWakeAngle is not used')
     # added
-    openmdao_comp.add_param('floris_params:initialWakeAngle', 3.0, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:initialWakeAngle', 1.5, pass_by_obj=True,
                             desc='sets how angled the wake flow should be at the rotor')
 
-    ### flags
-    openmdao_comp.add_param('floris_params:useWakeAngle', True, pass_by_obj=True,
+    # ## flags
+    openmdao_comp.add_param('floris_params:useWakeAngle', False if not use_rotor_components else True, pass_by_obj=True,
                             desc='define whether an initial angle or initial offset should be used for wake center. '
                                  'if True, then bd will be ignored and initialWakeAngle will'
                                  'be used. The reverse is also true')
 
+    # ##################   wake expansion   ##################
 
-    ###################   wake expansion   ##################
-
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_comp.add_param('floris_params:ke', 0.065, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:ke', 0.065 if not use_rotor_components else 0.05, pass_by_obj=True,
                             desc='parameter defining overall wake expansion')
-    openmdao_comp.add_param('floris_params:me', np.array([-0.5, 0.22, 1.0]), pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:me', np.array([-0.5, 0.22, 1.0]) if not use_rotor_components else np.array([-0.5, 0.3, 1.0]),
+                            pass_by_obj=True,
                             desc='parameters defining relative zone expansion. Mixing zone (me[2]) must always be 1.0')
 
-    ### flags
-    openmdao_comp.add_param('floris_params:adjustInitialWakeDiamToYaw', True, pass_by_obj=True,
+    # ## flags
+    openmdao_comp.add_param('floris_params:adjustInitialWakeDiamToYaw', False if not use_rotor_components else True,
+                            pass_by_obj=True,
                             desc='if True then initial wake diameter will be set to rotorDiameter*cos(yaw)')
 
+    # ##################   wake velocity   ##################
 
-    ###################   wake velocity   ##################
-
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_comp.add_param('floris_params:MU', np.array([0.5, 1.0, 10]), pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:MU', np.array([0.5, 1.0, 5.5]), pass_by_obj=True,
                             desc='velocity deficit decay rates for each zone. Middle zone must always be 1.0')
-    openmdao_comp.add_param('floris_params:aU', 5.0, units='deg', pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:aU', 5.0 if not use_rotor_components else 12.0, units='deg', pass_by_obj=True,
                             desc='zone decay adjustment parameter independent of yaw')
-    openmdao_comp.add_param('floris_params:bU', 1.66, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:bU', 1.66 if not use_rotor_components else 1.3, pass_by_obj=True,
                             desc='zone decay adjustment parameter dependent yaw')
     # added
-    openmdao_comp.add_param('floris_params:cos_spread', val=3.0, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:cos_spread', 1E12 if not use_rotor_components else 2.0, pass_by_obj=True,
                             desc='spread of cosine smoothing factor (multiple of sum of wake and rotor radii)')
     openmdao_comp.add_param('floris_params:keCorrArray', 0.0, pass_by_obj=True,
                             desc='multiplies the ke value by 1+keCorrArray*(sum of rotors relative overlap with '
@@ -74,13 +79,17 @@ def add_floris_parameters(openmdao_comp):
                             desc='defines ideal CT value for use in adjusting ke to yaw adjust CT if keCorrCT>0.0')
 
     # flags
-    openmdao_comp.add_param('floris_params:axialIndProvided', False, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:axialIndProvided', True if not use_rotor_components else False, pass_by_obj=True,
                             desc='if axial induction is not provided, then it will be calculated based on CT')
-    openmdao_comp.add_param('floris_params:useaUbU', False, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:useaUbU', True, pass_by_obj=True,
                             desc='if True then zone velocity decay rates (MU) will be adjusted based on yaw')
 
+    # ################   Visualization   ###########################
+    # shear layer (only influences visualization)
+    openmdao_comp.add_param('floris_params:shearCoefficientAlpha', 0.10805, pass_by_obj=True)
+    openmdao_comp.add_param('floris_params:shearZh', 90.0, pass_by_obj=True)
 
-    ###################   other   ##################
+    # ##################   other   ##################
     openmdao_comp.add_param('floris_params:FLORISoriginal', False, pass_by_obj=True,
                             desc='override all parameters and use FLORIS as original in first Wind Energy paper')
 
@@ -103,14 +112,16 @@ def add_floris_parameters(openmdao_comp):
     # openmdao_comp.add_param('floris_params:kdCorrYawDirection', 0.0, pass_by_obj=True)
 
 
-def add_floris_params_IndepVarComps(openmdao_object):
+def add_floris_params_IndepVarComps(openmdao_object, use_rotor_components=False):
+
     # permanently alter defaults here
 
-    ###################   wake deflection   ##################
+    # ##################   wake deflection   ##################
 
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_object.add('fp00', IndepVarComp('floris_params:kd', 0.15,
+    openmdao_object.add('fp00', IndepVarComp('floris_params:kd', 0.15 if not use_rotor_components else 0.17,
+                                             pass_by_obj=True,
                                              desc='model parameter that defines the sensitivity of the wake deflection '
                                                   'to yaw'),
                         promotes=['*'])
@@ -122,55 +133,60 @@ def add_floris_params_IndepVarComps(openmdao_object):
                                              desc='defines rate of wake displacement if initialWakeAngle is not used'),
                         promotes=['*'])
     # added
-    openmdao_object.add('fp03', IndepVarComp('floris_params:initialWakeAngle', 3.0, pass_by_obj=True,
+    openmdao_object.add('fp03', IndepVarComp('floris_params:initialWakeAngle', 1.5, pass_by_obj=True,
                                              desc='sets how angled the wake flow should be at the rotor'),
                         promotes=['*'])
 
-    ### flags
-    openmdao_object.add('fp04', IndepVarComp('floris_params:useWakeAngle', True, pass_by_obj=True,
+    # ## flags
+    openmdao_object.add('fp04', IndepVarComp('floris_params:useWakeAngle', False if not use_rotor_components else True,
+                                             pass_by_obj=True,
                                              desc='define whether an initial angle or initial offset should be used for'
                                                   'wake center. If True, then bd will be ignored and initialWakeAngle '
                                                   'will be used. The reverse is also true'),
                         promotes=['*'])
 
+    # ##################   wake expansion   ##################
 
-    ###################   wake expansion   ##################
-
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_object.add('fp05', IndepVarComp('floris_params:ke', 0.065, pass_by_obj=True,
+    openmdao_object.add('fp05', IndepVarComp('floris_params:ke', 0.065 if not use_rotor_components else 0.05,
+                                             pass_by_obj=True,
                                              desc='parameter defining overall wake expansion'),
                         promotes=['*'])
-    openmdao_object.add('fp06', IndepVarComp('floris_params:me', np.array([-0.5, 0.22, 1.0]), pass_by_obj=True,
+    openmdao_object.add('fp06', IndepVarComp('floris_params:me', np.array([-0.5, 0.22, 1.0]) if not use_rotor_components else np.array([-0.5, 0.3, 1.0]),
+                                             pass_by_obj=True,
                                              desc='parameters defining relative zone expansion. Mixing zone (me[2]) '
                                                   'must always be 1.0'),
                         promotes=['*'])
 
-    ### flags
-    openmdao_object.add('fp07', IndepVarComp('floris_params:adjustInitialWakeDiamToYaw', True, pass_by_obj=True,
+    # ## flags
+    openmdao_object.add('fp07', IndepVarComp('floris_params:adjustInitialWakeDiamToYaw',
+                                             False if not use_rotor_components else True, pass_by_obj=True,
                                              desc='if True then initial wake diameter will be set to '
                                                   'rotorDiameter*cos(yaw)'),
                         promotes=['*'])
 
 
-    ###################   wake velocity   ##################
+    # ##################   wake velocity   ##################
 
-    ### parameters
+    # ## parameters
     # original model
-    openmdao_object.add('fp08', IndepVarComp('floris_params:MU', np.array([0.5, 1.0, 10]), pass_by_obj=True,
+    openmdao_object.add('fp08', IndepVarComp('floris_params:MU', np.array([0.5, 1.0, 5.5]), pass_by_obj=True,
                                              desc='velocity deficit decay rates for each zone. Middle zone must always '
                                                   'be 1.0'),
                         promotes=['*'])
-    openmdao_object.add('fp09', IndepVarComp('floris_params:aU', 5.0, units='deg', pass_by_obj=True,
+    openmdao_object.add('fp09', IndepVarComp('floris_params:aU', 5.0 if not use_rotor_components else 12.0, units='deg',
+                                             pass_by_obj=True,
                                              desc='zone decay adjustment parameter independent of yaw'),
                         promotes=['*'])
-    openmdao_object.add('fp10', IndepVarComp('floris_params:bU', 1.66, pass_by_obj=True,
+    openmdao_object.add('fp10', IndepVarComp('floris_params:bU', 1.66 if not use_rotor_components else 1.3,
+                                             pass_by_obj=True,
                                              desc='zone decay adjustment parameter dependent yaw'),
                         promotes=['*'])
     # added
-    openmdao_object.add('fp11', IndepVarComp('floris_params:cos_spread', val=3.0, pass_by_obj=True,
-                                             desc='spread of cosine smoothing factor (multiple of sum of wake and rotor '
-                                                  'radii)'),
+    openmdao_object.add('fp11', IndepVarComp('floris_params:cos_spread', 2.0, pass_by_obj=True,
+                                             desc='spread of cosine smoothing factor (multiple of sum of wake and '
+                                                  'rotor radii)'),
                         promotes=['*'])
     openmdao_object.add('fp12', IndepVarComp('floris_params:keCorrArray', 0.0, pass_by_obj=True,
                                              desc='multiplies the ke value by 1+keCorrArray*(sum of rotors relative '
@@ -186,238 +202,43 @@ def add_floris_params_IndepVarComps(openmdao_object):
                         promotes=['*'])
 
     # flags
-    openmdao_object.add('fp15', IndepVarComp('floris_params:axialIndProvided', False, pass_by_obj=True,
+    openmdao_object.add('fp15', IndepVarComp('floris_params:axialIndProvided',
+                                             True if not use_rotor_components else False, pass_by_obj=True,
                                              desc='if axial induction is not provided, then it will be calculated based '
                                                   'on CT'),
                         promotes=['*'])
-    openmdao_object.add('fp16', IndepVarComp('floris_params:useaUbU', False, pass_by_obj=True,
+    openmdao_object.add('fp16', IndepVarComp('floris_params:useaUbU', True, pass_by_obj=True,
                                              desc='if True then zone velocity decay rates (MU) will be adjusted based '
                                                   'on yaw'),
                         promotes=['*'])
 
+    # ################   Visualization   ###########################
+    # shear layer (only influences visualization)
+    openmdao_object.add('fp17', IndepVarComp('floris_params:shearCoefficientAlpha', 0.10805, pass_by_obj=True),
+                        promotes=['*'])
+    openmdao_object.add('fp18', IndepVarComp('floris_params:shearZh', 90.0, pass_by_obj=True), promotes=['*'])
 
-    ###################   other   ##################
-    openmdao_object.add('fp17', IndepVarComp('floris_params:FLORISoriginal', False, pass_by_obj=True,
+    # ##################   other   ##################
+    # this is currently not used. Defaults to original if use_rotor_components=False
+    openmdao_object.add('fp19', IndepVarComp('floris_params:FLORISoriginal', False, pass_by_obj=True,
                                              desc='override all parameters and use FLORIS as original in Gebraad et al.'
                                                   '2014, Wind plant power optimization through yaw control using a '
                                                   'parametric model for wake effect-a CFD simulation study'),
                         promotes=['*'])
 
 
-# Components of FLORIS - for full model use FLORIS(Group)
-class floris_wcent_wdiam(Component):
+class Floris(Component):
 
-    def __init__(self, nTurbines, direction_id=0, differentiable=True, splineshift=0.0):
+    def __init__(self, nTurbines, direction_id=0, differentiable=True, use_rotor_components=False, nSamples=0,
+                 verbose=False):
 
-        super(floris_wcent_wdiam, self).__init__()
-        
+        super(Floris, self).__init__()
+
         self.direction_id = direction_id
         self.differentiable = differentiable
-        self.splineshift = splineshift
-
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-3
-        self.fd_options['step_type'] = 'relative'
-
-        if not differentiable:
-            self.fd_options['force_fd'] = True
-            self.fd_options['form'] = 'forward'
-
-        # print 'entering wcent_wdiam __init__ - Tapenade'
-
-        # input arrays
-        self.add_param('turbineXw', np.zeros(nTurbines), units='m', desc='x coordinates of turbines in wind dir. ref. frame')
-        self.add_param('turbineYw', np.zeros(nTurbines), units='m', desc='y coordinates of turbines in wind dir. ref. frame')
-        self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='z coordinates of turbines') #TODO added here
-        self.add_param('yaw%i' % direction_id, np.zeros(nTurbines), units='deg', desc='yaw of each turbine')
-        self.add_param('rotorDiameter', np.zeros(nTurbines), units='m', desc='rotor diameter of each turbine')
-        self.add_param('Ct', np.zeros(nTurbines), desc='thrust coefficient of each turbine')
-
-        # output arrays
-        self.add_output('wakeCentersYT', np.zeros(nTurbines*nTurbines), units='m', desc='wake center y position at each turbine')
-        self.add_output('wakeCentersZT', np.zeros(nTurbines*nTurbines), units='m', desc='wake center z position at each turbine') #TODO added here
-        self.add_output('wakeDiametersT', np.zeros(3*nTurbines*nTurbines), units='m', desc='wake diameter of each zone of each wake at each turbine')
-
-        # FLORIS parameters
-        add_floris_parameters(self)
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        # print 'entering wcent_wdiam - tapenade'
-
-        rotorDiameter = params['rotorDiameter']
-        Ct = params['Ct']
-
-        Region2CT = params['floris_params:Region2CT']
-
-        if params['floris_params:FLORISoriginal']:
-            ke = 0.065
-            keCorrCT = 0.0
-            kd = 0.15
-            me = np.array([-0.5, 0.22, 1.0])
-            useWakeAngle = False
-            initialWakeDisplacement = -4.5
-            initialWakeAngle = params['floris_params:initialWakeAngle']
-            bd = -0.01
-            adjustInitialWakeDiamToYaw = False
-
-        else:
-            ke = params['floris_params:ke']
-            keCorrCT = params['floris_params:keCorrCT']
-            kd = params['floris_params:kd']
-            me = params['floris_params:me']
-            initialWakeDisplacement = params['floris_params:initialWakeDisplacement']
-            useWakeAngle = params['floris_params:useWakeAngle']
-            initialWakeAngle = params['floris_params:initialWakeAngle']
-            bd = params['floris_params:bd']
-            adjustInitialWakeDiamToYaw = params['floris_params:adjustInitialWakeDiamToYaw']
- 
-        #TODO
-        """This is Where floris.f90 is called
-        0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""" 
-        # x and y positions w.r.t. the wind direction (wind = +x)
-        turbineXw = params['turbineXw']
-        turbineYw = params['turbineYw']
-        turbineZ = params['turbineZ'] #TODO added here
-
-        # yaw in degrees
-        yaw_deg = params['yaw%i' % self.direction_id]
-        # print yaw_deg, Ct
-        if self.differentiable:
-            wakeCentersYT_vec, wakeCentersZT_vec, wakeDiametersT_vec = _floris.floris_wcent_wdiam(kd, initialWakeDisplacement, \
-                                  initialWakeAngle, ke, keCorrCT, Region2CT, yaw_deg, Ct, turbineXw, turbineYw, turbineZ, \
-                                  rotorDiameter, me, bd, useWakeAngle, adjustInitialWakeDiamToYaw) #TODO added wakeCentersZT_vec here, and turbineZ
-        else:
-            # print "not differentiable"
-            # print "ke = ", ke
-            wakeCentersYT_vec, wakeDiametersT_vec = _florisDiscontinuous.floris_wcent_wdiam(kd, initialWakeDisplacement, \
-                                  initialWakeAngle, ke, keCorrCT, Region2CT, yaw_deg, Ct, turbineXw, turbineYw, \
-                                  rotorDiameter, me, bd, useWakeAngle, adjustInitialWakeDiamToYaw)
-
-        # Outputs in vector form so they can be used in Jacobian creation
-        unknowns['wakeCentersYT'] = wakeCentersYT_vec
-        unknowns['wakeCentersZT'] = wakeCentersZT_vec #TODO added here
-        unknowns['wakeDiametersT'] = wakeDiametersT_vec
-
-        # print 'yaw: ', yaw_deg
-
-    def linearize(self, params, unknowns, resids):
-
-        # # # print 'entering wcen wdiam linearize'
-        rotorDiameter = params['rotorDiameter']
-        Ct = params['Ct']
-        Region2CT = params['floris_params:Region2CT']
-
-        if params['floris_params:FLORISoriginal']:
-
-            ke = 0.065
-            keCorrCT = 0.0
-            kd = 0.15
-            me = np.array([-0.5, 0.22, 1.0])
-            useWakeAngle = False
-            initialWakeDisplacement = -4.5
-            initialWakeAngle = params['floris_params:initialWakeAngle']
-            bd = -0.01
-            adjustInitialWakeDiamToYaw = False
-
-        else:
-            # rename inputs and outputs
-            ke = params['floris_params:ke']
-            keCorrCT = params['floris_params:keCorrCT']
-            kd = params['floris_params:kd']
-            me = params['floris_params:me']
-            initialWakeDisplacement = params['floris_params:initialWakeDisplacement']
-            useWakeAngle = params['floris_params:useWakeAngle']
-            initialWakeAngle = params['floris_params:initialWakeAngle']
-            bd = params['floris_params:bd']
-            adjustInitialWakeDiamToYaw = params['floris_params:adjustInitialWakeDiamToYaw']
-
-        # x and y positions w.r.t. the wind direction (wind = +x)
-        turbineXw = params['turbineXw']
-        turbineYw = params['turbineYw']
-        turbineZ = params['turbineZ'] #TODO added here
-
-        # turbine yaw w.r.t. wind direction
-        yaw_deg = params['yaw%i' % self.direction_id]
-
-        # number of turbines
-        nTurbines = np.size(turbineXw)
-
-        # number of directions being differentiated in the Jacobian
-        nbdirs = nTurbines*nTurbines
-
-        # input arrays to direct differentiation
-        wakeCentersYT_vecb = np.eye(nbdirs, nTurbines*nTurbines)
-        # wakeCentersZT_vecb = np.eye(nbdirs, nTurbines*nTurbines) #TODO added here. Don't need this?
-        wakeDiametersT_vecb = np.zeros((nbdirs, 3*nTurbines*nTurbines))
-
-
-        # initialize linearize dict
-        J = {}
-
-        # function call to extract gradients of wakeCentersYT w.r.t. all design vars
-        # yawb, Ctb, turbineXwb, turbineYwb, rotorDiameterb = \
-        #     _floris.floris_wcent_wdiam_bv(kd, initialWakeDisplacement, initialWakeAngle, ke, keCorrCT, Region2CT,
-        #                                   yaw_deg, Ct, turbineXw, turbineYw, rotorDiameter, me, bd, self.splineshift, useWakeAngle,
-        #                                   adjustInitialWakeDiamToYaw, wakeCentersYT_vecb, wakeDiametersT_vecb)
-        #
-        #TODO WHAT DO WE NEED TO CHANGE HERE? ADD WHAT TO THE GRADIENT CALCULATIONS?
-        """ALSO CHANGE THIS for turbineZw 00000000000000000000000000000000000000000000000000000000000000000000000"""
-        #TODO 
-        yawb, Ctb, turbineXwb, turbineYwb, rotorDiameterb = \
-            _floris.floris_wcent_wdiam_bv(kd, initialWakeDisplacement, initialWakeAngle, ke, keCorrCT, Region2CT,
-                                          yaw_deg, Ct, turbineXw, turbineYw, rotorDiameter, me, bd, useWakeAngle,
-                                          adjustInitialWakeDiamToYaw, wakeCentersYT_vecb, wakeDiametersT_vecb) #TODO TODO TODO TODO What do I do here? added turbineZb and turbineZ (taking out both)
-
-        # print 'here', turbineXwb, yawb.shape, Ctb.shape, rotorDiameterb.shape
-
-        # construct Jacobian of wakeCentersYT
-        J['wakeCentersYT', 'yaw%i' % self.direction_id] = yawb
-        J['wakeCentersYT', 'Ct'] = Ctb
-        J['wakeCentersYT', 'turbineXw'] = turbineXwb
-        J['wakeCentersYT', 'turbineYw'] = turbineYwb
-        J['wakeCentersYT', 'rotorDiameter'] = rotorDiameterb
-
-        # number of directions being differentiated in the Jacobian
-        nbdirs = 3*nTurbines*nTurbines
-
-        # input arrays to direct differentiation
-        # wakeCentersYT_vecb[:, :] = 0.0
-        wakeCentersYT_vecb = np.zeros((nbdirs, nTurbines*nTurbines))
-        # wakeCentersZT_vecb = np.zeros((nbdirs, nTurbines*nTurbines)) #TODO added here. Don't need this?
-        wakeDiametersT_vecb = np.eye(nbdirs, nbdirs)
-
-
-        # function call to extract gradients of wakeDiametersT w.r.t. all design vars
-        # yawb, Ctb, turbineXwb, turbineYwb, rotorDiameterb = \
-        #     _floris.floris_wcent_wdiam_bv(kd, initialWakeDisplacement, initialWakeAngle, ke, keCorrCT, Region2CT,
-        #                                   yaw_deg, Ct, turbineXw, turbineYw, rotorDiameter, me, bd, self.splineshift, useWakeAngle,
-        #                                   adjustInitialWakeDiamToYaw, wakeCentersYT_vecb, wakeDiametersT_vecb)
-        #     #
-        yawb, Ctb, turbineXwb, turbineYwb, rotorDiameterb = \
-        _floris.floris_wcent_wdiam_bv(kd, initialWakeDisplacement, initialWakeAngle, ke, keCorrCT, Region2CT,
-                                      yaw_deg, Ct, turbineXw, turbineYw, rotorDiameter, me, bd, useWakeAngle,
-                                      adjustInitialWakeDiamToYaw, wakeCentersYT_vecb, wakeDiametersT_vecb)
-
-        # construct Jacobian of wakeDiametersT
-        J['wakeDiametersT', 'yaw%i' % self.direction_id] = yawb
-        J['wakeDiametersT', 'Ct'] = Ctb
-        J['wakeDiametersT', 'turbineXw'] = turbineXwb
-        J['wakeDiametersT', 'turbineYw'] = turbineYwb
-        J['wakeDiametersT', 'rotorDiameter'] = rotorDiameterb
-
-        return J
-
-
-class floris_overlap(Component):
-    """ Calculates the overlap between each turbine rotor and the existing turbine wakes """
-
-    def __init__(self, nTurbines, differentiable=True, splineshift=0.0):
-
-        super(floris_overlap, self).__init__()
-
-        self.differentiable = differentiable
-        self.splineshift = splineshift
+        self.nTurbines = nTurbines
+        self.verbose = verbose
+        self.nSamples = nSamples
 
         self.fd_options['form'] = 'central'
         self.fd_options['step_size'] = 1.0e-6
@@ -426,625 +247,435 @@ class floris_overlap(Component):
         if not differentiable:
             self.fd_options['force_fd'] = True
             self.fd_options['form'] = 'forward'
-
-        # print 'entering overlap __init__ - Tapenade'
-
-        # input arrays
-        self.add_param('turbineXw', np.zeros(nTurbines), units='m',
-                       desc='X positions of turbines wrt the wind direction')
-        self.add_param('turbineYw', np.zeros(nTurbines), units='m',
-                       desc='Y positions of turbines wrt the wind direction')
-        self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='Z positions of turbines') #TODO added here
-        self.add_param('rotorDiameter', np.zeros(nTurbines), units='m',
-                       desc='diameters of all turbine rotors')
-        self.add_param('wakeCentersYT', np.zeros(nTurbines*nTurbines), units='m',
-                       desc='Y positions of all wakes at each turbine')
-        self.add_param('wakeCentersZT', np.zeros(nTurbines*nTurbines), units='m', desc='Z positions of all wakes at each turbine') #TODO added here
-        self.add_param('wakeDiametersT', np.zeros(3*nTurbines*nTurbines), units='m',
-                       desc='diameters of all turbines wake zones')
-
-        # output arrays
-        self.add_output('wakeOverlapTRel', np.zeros(3*nTurbines*nTurbines),
-                        desc='relative wake zone overlap to rotor area')
-
-        if differentiable:
-            self.add_output('cosFac', np.ones(3*nTurbines*nTurbines),
-                            desc='cosine factor similar to Jensen 1983')
-
-        # FLORIS parameters
-        add_floris_parameters(self)
-
-        # etc
-        self.nTurbines = nTurbines
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        # print 'entering overlap - Tapenade'
-
-        # call to fortran code to obtain relative wake overlap values
-        # print params['turbineXw'], params['turbineYw'], params['rotorDiameter']
-        if self.differentiable:
-        #TODO CHANGE HERE
-            wakeOverlapTRel_vec, cosFac_vec = _floris.floris_overlap(params['turbineXw'], params['turbineYw'], params['turbineZ'],
-                                                                     params['rotorDiameter'], params['wakeDiametersT'],
-                                                                     params['wakeCentersYT'], params['wakeCentersZT'], 
-                                                                     params['floris_params:cos_spread']) #TODO added turbineZ params, wakeCentersZT
-             # pass results to self in the form of a vector for use in Jacobian creation
-            unknowns['wakeOverlapTRel'] = wakeOverlapTRel_vec
-            unknowns['cosFac'] = cosFac_vec
         else:
-            wakeOverlapTRel_vec = _florisDiscontinuous.floris_overlap(params['turbineXw'], params['turbineYw'],
-                                                         params['rotorDiameter'], params['wakeDiametersT'],
-                                                         params['wakeCentersYT'])
-            # pass results to self in the form of a vector for use in Jacobian creation
-            unknowns['wakeOverlapTRel'] = wakeOverlapTRel_vec
-
-    def linearize(self, params, unknowns, resids):
-        # print 'entering overlap linearize'
-        # number of turbines
-        nTurbines = self.nTurbines
-
-        # number of directions being differentiated
-        nbdirs = 3*nTurbines*nTurbines
-
-        # input array to direct differentiation
-        wakeOverlapTRel_vecb = np.eye(nbdirs, 3*nTurbines*nTurbines)
-        cosFac_vecb = np.zeros((nbdirs, 3*nTurbines*nTurbines))
-        # print params['rotorDiameter'], cosFac_vecb.shape, wakeOverlapTRel_vecb.shape
-        # function call to fortran to obtain gradients
-        # print params['turbineXw'], params['turbineYw'], params['rotorDiameter']
-        # turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb\
-        #     = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
-        #                                 params['wakeDiametersT'], params['wakeCentersYT'],
-        #                                 params['floris_params:cos_spread'], self.splineshift, wakeOverlapTRel_vecb, cosFac_vecb)
-        #TODO TODO TODO TODO What to do here????CHANGE HERE. NEED TO RUN TAPENADE AGAIN?
-        turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
-            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
-                                        params['wakeDiametersT'], params['wakeCentersYT'],
-                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ'] TOOK OUT
-
-        J = {}
-        #TODO TODO TODO TODO what to do here?
-        # construct Jacobian of floris_overlap
-        J['wakeOverlapTRel', 'turbineYw'] = turbineYwb
-        J['wakeOverlapTRel', 'rotorDiameter'] = rotorDiameterb
-        J['wakeOverlapTRel', 'wakeDiametersT'] = wakeDiametersT_vecb
-        J['wakeOverlapTRel', 'wakeCentersYT'] = wakeCentersYT_vecb
-
-         # input array to direct differentiation
-        wakeOverlapTRel_vecb = np.zeros((nbdirs, 3*nTurbines*nTurbines))
-        cosFac_vecb = np.eye(nbdirs, 3*nTurbines*nTurbines)
-
-        # function call to fortran to obtain gradients
-        # turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb\
-        #     = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
-        #                                 params['wakeDiametersT'], params['wakeCentersYT'],
-        #                                 params['floris_params:cos_spread'], self.splineshift, wakeOverlapTRel_vecb, cosFac_vecb)
-        #
-        #TODO TODO TODO TODO CHANGE HERE
-        turbineYwb, rotorDiameterb, wakeDiametersT_vecb, wakeCentersYT_vecb \
-            = _floris.floris_overlap_bv(params['turbineXw'], params['turbineYw'], params['rotorDiameter'],
-                                        params['wakeDiametersT'], params['wakeCentersYT'],
-                                        params['floris_params:cos_spread'], wakeOverlapTRel_vecb, cosFac_vecb) #TODO added turbineZb and params['turbineZ'] TOOK OUT
-        #TODO TODO TODO TODO what to do here?
-        # construct Jacobian of floris_overlap
-        J['cosFac', 'turbineYw'] = turbineYwb
-        J['cosFac', 'rotorDiameter'] = rotorDiameterb
-        J['cosFac', 'wakeDiametersT'] = wakeDiametersT_vecb
-        J['cosFac', 'wakeCentersYT'] = wakeCentersYT_vecb
-
-        return J
-
-
-class floris_velocity(Component):
-    """ Calculates the turbine power and effective wind speed for each turbine """
-
-    def __init__(self, nTurbines, direction_id=0, differentiable=True, splineshift=0.0):
-
-        super(floris_velocity, self).__init__()
-
-        self.differentiable = differentiable
-        self.splineshift = splineshift
-        self.nTurbines = nTurbines
-        self.direction_id = direction_id
-
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-6
-        self.fd_options['step_type'] = 'relative'
-
-        if not differentiable:
-            self.fd_options['force_fd'] = True
-            self.fd_options['form'] = 'forward'
-
-        # print 'entering power __init__ - Tapenade'
-
-
-        # inputs
-        self.add_param('wind_speed', 8.0, units='m/s', desc='free stream wind velocity')
-        self.add_param('air_density', 1.1716, units='kg/(m*m*m)', desc='air density in free stream')
-        self.add_param('rotorDiameter', np.zeros(nTurbines), units='m', desc='rotor diameters of all turbine')
-        self.add_param('axialInduction', np.zeros(nTurbines)+1./3., desc='axial induction of all turbines')
-        self.add_param('Ct', np.zeros(nTurbines)+4.0*(1./3.)*(1.0-(1./3.)), desc='Thrust coefficient for all turbines')
-        self.add_param('Cp', np.zeros(nTurbines)+0.7737/0.944 * 4.0 * 1.0/3.0 * np.power((1 - 1.0/3.0), 2), desc='power coefficient for all turbines')
-        self.add_param('generator_efficiency', np.zeros(nTurbines)+0.944, desc='generator efficiency of all turbines')
-        self.add_param('turbineXw', np.zeros(nTurbines), units='m',
-                       desc='X positions of turbines in the wind direction reference frame')
-        self.add_param('yaw%i' % direction_id, np.zeros(nTurbines), units='deg',
-                       desc='yaw angle of turbines wrt the wind direction')
-        self.add_param('wakeDiametersT', np.zeros(3*nTurbines*nTurbines), units='m',
-                       desc='diameters of each of the wake zones for each of the wakes at each turbine')
-        self.add_param('wakeOverlapTRel', np.zeros(3*nTurbines*nTurbines),
-                       desc='ratios of wake overlap area per zone to rotor area')
-        if differentiable:
             self.add_param('cosFac', np.zeros(3*nTurbines*nTurbines),
                            desc='cosine factor similar to Jensen 1983')
 
-        # outputs
-        self.add_output('velocitiesTurbines%i' % direction_id, val=np.zeros(nTurbines), units='m/s',
-                       desc='effective hub velocity for each turbine')
-
         # FLORIS parameters
-        add_floris_parameters(self)
+        add_floris_parameters(self, use_rotor_components=use_rotor_components)
+
+        # input arrays
+        self.add_param('turbineXw', np.zeros(nTurbines), units='m',
+                       desc='x coordinates of turbines in wind dir. ref. frame')
+        self.add_param('turbineYw', np.zeros(nTurbines), units='m',
+                       desc='y coordinates of turbines in wind dir. ref. frame')
+        self.add_param('yaw%i' % direction_id, np.zeros(nTurbines), units='deg',
+                       desc='yaw of each turbine wrt wind dir.')
+        self.add_param('hubHeight', np.zeros(nTurbines), units='m',
+                       desc='hub heights of all turbines')
+        self.add_param('rotorDiameter', np.zeros(nTurbines) + 126.4, units='m', desc='rotor diameter of each turbine')
+        self.add_param('Ct', np.zeros(nTurbines)+4.0*(1./3.)*(1.0-(1./3.)), desc='thrust coefficient of each turbine')
+        self.add_param('wind_speed', 8.0, units='m/s', desc='free stream wind velocity')
+        self.add_param('axialInduction', np.zeros(nTurbines)+1./3., desc='axial induction of all turbines')
+
+        # output arrays
+        self.add_output('wtVelocity%i' % direction_id, val=np.zeros(nTurbines), units='m/s',
+                        desc='effective hub velocity for each turbine')
+        self.add_output('wakeCentersYT', np.zeros(nTurbines*nTurbines), units='m',
+                        desc='wake center y position at each turbine')
+        self.add_output('wakeDiametersT', np.zeros(3*nTurbines*nTurbines), units='m',
+                        desc='wake diameter of each zone of each wake at each turbine')
+        self.add_output('wakeOverlapTRel', np.zeros(3*nTurbines*nTurbines),
+                        desc='relative wake zone overlap to rotor area')
+
+        # ############################ visualization arrays ##################################
+        if nSamples > 0:
+            # visualization input
+            self.add_param('wsPositionXw', np.zeros(nSamples), units='m', pass_by_object=True,
+                           desc='downwind position of desired measurements in wind ref. frame')
+            self.add_param('wsPositionYw', np.zeros(nSamples), units='m', pass_by_object=True,
+                           desc='crosswind position of desired measurements in wind ref. frame')
+            self.add_param('wsPositionZ', np.zeros(nSamples), units='m', pass_by_object=True,
+                           desc='position of desired measurements in wind ref. frame')
+
+            # visualization output
+            self.add_output('wsArray%i' % direction_id, np.zeros(nSamples), units='m/s', pass_by_object=True,
+                            desc='wind speed at measurement locations')
 
     def solve_nonlinear(self, params, unknowns, resids):
-        # print 'entering power - tapenade'
 
-        # reassign input variables
-        wakeOverlapTRel_v = params['wakeOverlapTRel']
-        if self.differentiable:
-            cosFac_v = params['cosFac']
-        Region2CT = params['floris_params:Region2CT']
-        Ct = params['Ct']
-        Vinf = params['wind_speed']
+        # x and y positions w.r.t. the wind direction (wind dir. = +x)
         turbineXw = params['turbineXw']
-        axialInduction = params['axialInduction']
+        turbineYw = params['turbineYw']
+
+        # yaw wrt wind dir.
+        yawDeg = params['yaw%i' % self.direction_id]
+
+        # turbine specs
         rotorDiameter = params['rotorDiameter']
-        rho = params['air_density']
-        generator_efficiency = params['generator_efficiency']
-        Cp = params['Cp']
-        yaw = params['yaw%i' % self.direction_id]
+        hubHeight = params['hubHeight']
 
-        # print 'wake OL in power', wakeOverlapTRel_v
+        # air flow
+        Vinf = params['wind_speed']
+        Ct = params['Ct']
 
-        # set floris parameter values
-        if params['floris_params:FLORISoriginal']:
+        # wake deflection
+        kd = params['floris_params:kd']
+        bd = params['floris_params:bd']
+        initialWakeDisplacement = params['floris_params:initialWakeDisplacement']
+        useWakeAngle = params['floris_params:useWakeAngle']
+        initialWakeAngle = params['floris_params:initialWakeAngle']
 
-            ke = 0.065
-            keCorrCT = 0.0
-            keCorrArray = 0.0
-            MU = np.array([0.5, 1.0, 5.5])
-            useaUbU = True
-            aU = 5.0
-            bU = 1.66
-            axialIndProvided = True
+        # wake expansion
+        ke = params['floris_params:ke']
+        adjustInitialWakeDiamToYaw = params['floris_params:adjustInitialWakeDiamToYaw']
 
+        # velocity deficit
+        MU = params['floris_params:MU']
+        useaUbU = params['floris_params:useaUbU']
+        aU = params['floris_params:aU']
+        bU = params['floris_params:bU']
+        me = params['floris_params:me']
+        cos_spread = params['floris_params:cos_spread']
+
+        # logicals
+        Region2CT = params['floris_params:Region2CT']
+        axialInduction = params['axialInduction']
+        keCorrCT = params['floris_params:keCorrCT']
+        keCorrArray = params['floris_params:keCorrArray']
+        axialIndProvided = params['floris_params:axialIndProvided']
+
+        # visualization
+        # shear layer (only influences visualization)
+        shearCoefficientAlpha = params['floris_params:shearCoefficientAlpha']
+        shearZh = params['floris_params:shearZh']
+
+        if self.nSamples > 0:
+            wsPositionXYZw = np.array([params['wsPositionXw'], params['wsPositionYw'], params['wsPositionZ']])
         else:
-            ke = params['floris_params:ke']
-            keCorrCT = params['floris_params:keCorrCT']
-            keCorrArray = params['floris_params:keCorrArray']
-            MU = params['floris_params:MU']
-            useaUbU = params['floris_params:useaUbU']
-            aU = params['floris_params:aU']
-            bU = params['floris_params:bU']
+            nSamples = 1
+            wsPositionXYZw = np.zeros([3, nSamples])
 
-        # print 'ke, ME, aI, bU: ', ke, MU, aU, bU
+        # print option
+        if self.verbose:
+            np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+            print "free-stream wind speed %s" % Vinf
+            print "axial induction of turbines %s" % axialInduction
+            print "C_T of turbines %s" % Ct
+            print "yaw of turbines %s" % yawDeg
 
-            axialIndProvided = params['floris_params:axialIndProvided']
-
-        # how far in front of turbines to use overlap power calculations (in rotor diameters). This must match the
-        # value used in floris_wcent_wdiam (hardcoded in fortran as 1)
-        # print self.differentiable
         if self.differentiable:
-            # TO DO hard code this parameter in the fortran code and remove the specifier from all functions of this component
-            p_near0 = -1.0
-            # p_near0 = 0.0
-            # splineshift = self.splineshift
-
-            # pass p_near0 to self for use in gradient calculations
-            self.p_near0 = p_near0
-
             # call to fortran code to obtain output values
-            velocitiesTurbines = _floris.floris_velocity(wakeOverlapTRel_v, cosFac_v, Ct, axialInduction,
-                                                                       axialIndProvided, useaUbU, keCorrCT, Region2CT,
-                                                                       ke, Vinf, keCorrArray, turbineXw, yaw,
-                                                                       rotorDiameter, MU, aU, bU)
+            wtVelocity, wsArray, wakeCentersYT, wakeDiametersT, wakeOverlapTRel = \
+                _floris.floris(turbineXw, turbineYw, yawDeg, rotorDiameter, hubHeight, Vinf,
+                                               Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
+                                               MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
+                                               Region2CT, keCorrArray, useWakeAngle,
+                                               adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, wsPositionXYZw,
+                                               shearCoefficientAlpha, shearZh)
         else:
-            velocitiesTurbines = _florisDiscontinuous.floris_velocity(wakeOverlapTRel_v, Ct, axialInduction, \
-                                                                axialIndProvided, useaUbU, keCorrCT, Region2CT, ke, \
-                                                                Vinf, keCorrArray, turbineXw, yaw, rotorDiameter, MU, \
-                                                                aU, bU)
+             # call to fortran code to obtain output values
+            wtVelocity, wsArray, wakeCentersYT, wakeDiametersT, wakeOverlapTRel = \
+                _florisDiscontinuous.floris(turbineXw, turbineYw, yawDeg, rotorDiameter, Vinf,
+                                                           Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
+                                                           MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
+                                                           Region2CT, keCorrArray, useWakeAngle,
+                                                           adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU,
+                                                           wsPositionXYZw)
 
         # pass outputs to self
-        unknowns['velocitiesTurbines%i' % self.direction_id] = velocitiesTurbines
-        # unknowns['wt_power%i' % self.direction_id] = wt_power
-        # unknowns['power%i' % self.direction_id] = power
-
-        # print 'velocitiesTurbines: ', velocitiesTurbines
-        # print 'wt_power: ', wt_power
-        # print 'power: ', power
+        unknowns['wtVelocity%i' % self.direction_id] = wtVelocity
+        unknowns['wakeCentersYT'] = wakeCentersYT
+        unknowns['wakeDiametersT'] = wakeDiametersT
+        unknowns['wakeOverlapTRel'] = wakeOverlapTRel
+        if self.nSamples > 0:
+            unknowns['wsArray%i' % self.direction_id] = wsArray
 
     def apply_nonlinear(self, params, unknowns, resids):
-        # print 'entering power - tapenade'
 
-        # reassign input variables
-        wakeOverlapTRel_v = params['wakeOverlapTRel']
-        if self.differentiable:
-            cosFac_v = params['cosFac']
-        Region2CT = params['floris_params:Region2CT']
-        Ct = params['Ct']
-        Vinf = params['wind_speed']
+        # x and y positions w.r.t. the wind direction (wind dir. = +x)
         turbineXw = params['turbineXw']
-        axialInduction = params['axialInduction']
+        turbineYw = params['turbineYw']
+
+        # yaw wrt wind dir.
+        yawDeg = params['yaw%i' % self.direction_id]
+
+        # turbine specs
         rotorDiameter = params['rotorDiameter']
-        rho = params['air_density']
-        generator_efficiency = params['generator_efficiency']
-        Cp = params['Cp']
-        yaw = params['yaw%i' % self.direction_id]
+        hubHeight = params['hubHeight']
 
-        # print 'wake OL in power', wakeOverlapTRel_v
+        # air flow
+        Vinf = params['wind_speed']
+        Ct = params['Ct']
 
-        # set floris parameter values
-        if params['floris_params:FLORISoriginal']:
+        # wake deflection
+        kd = params['floris_params:kd']
+        bd = params['floris_params:bd']
+        initialWakeDisplacement = params['floris_params:initialWakeDisplacement']
+        useWakeAngle = params['floris_params:useWakeAngle']
+        initialWakeAngle = params['floris_params:initialWakeAngle']
 
-            ke = 0.065
-            keCorrCT = 0.0
-            keCorrArray = 0.0
-            MU = np.array([0.5, 1.0, 5.5])
-            useaUbU = True
-            aU = 5.0
-            bU = 1.66
-            axialIndProvided = True
+        # wake expansion
+        ke = params['floris_params:ke']
+        adjustInitialWakeDiamToYaw = params['floris_params:adjustInitialWakeDiamToYaw']
 
+        # velocity deficit
+        MU = params['floris_params:MU']
+        useaUbU = params['floris_params:useaUbU']
+        aU = params['floris_params:aU']
+        bU = params['floris_params:bU']
+        me = params['floris_params:me']
+        cos_spread = params['floris_params:cos_spread']
+
+        # logicals
+        Region2CT = params['floris_params:Region2CT']
+        axialInduction = params['axialInduction']
+        keCorrCT = params['floris_params:keCorrCT']
+        keCorrArray = params['floris_params:keCorrArray']
+        axialIndProvided = params['floris_params:axialIndProvided']
+
+        # visualization
+        # shear layer (only influences visualization)
+        shearCoefficientAlpha = params['floris_params:shearCoefficientAlpha']
+        shearZh = params['floris_params:shearZh']
+        if self.nSamples > 0:
+            wsPositionXYZw = np.array([params['wsPositionXw'], params['wsPositionYw'], params['wsPositionZ']])
         else:
-            ke = params['floris_params:ke']
-            keCorrCT = params['floris_params:keCorrCT']
-            keCorrArray = params['floris_params:keCorrArray']
-            MU = params['floris_params:MU']
-            useaUbU = params['floris_params:useaUbU']
-            aU = params['floris_params:aU']
-            bU = params['floris_params:bU']
+            nSamples = 1
+            wsPositionXYZw = np.zeros([3, nSamples])
 
-        # print 'ke, ME, aI, bU: ', ke, MU, aU, bU
-
-            axialIndProvided = params['floris_params:axialIndProvided']
-
-        # how far in front of turbines to use overlap power calculations (in rotor diameters). This must match the
-        # value used in floris_wcent_wdiam (hardcoded in fortran as 1)
-        # TO DO hard code this parameter in the fortran code and remove the specifier from all functions of this component
-        # p_near0 = 1.0
-
-        # pass p_near0 to self for use in gradient calculations
-        # self.p_near0 = p_near0
-        # print self.differentiable
         if self.differentiable:
-            # TO DO hard code this parameter in the fortran code and remove the specifier from all functions of this component
-            # p_near0 = self.p_near0
-            # splineshift = self.splineshift
-
-            # pass p_near0 to self for use in gradient calculations
-            # self.p_near0 = p_near0
-
             # call to fortran code to obtain output values
-            velocitiesTurbines = _floris.floris_velocity(wakeOverlapTRel_v, cosFac_v, Ct, axialInduction,
-                                                                       axialIndProvided, useaUbU, keCorrCT, Region2CT,
-                                                                       ke, Vinf, keCorrArray, turbineXw, yaw,
-                                                                       rotorDiameter, MU, aU, bU)
+            wtVelocity, wsArray, wakeCentersYT, wakeDiametersT, wakeOverlapTRel = \
+                _floris.floris(turbineXw, turbineYw, yawDeg, rotorDiameter, hubHeight, Vinf,
+                                               Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
+                                               MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
+                                               Region2CT, keCorrArray, useWakeAngle,
+                                               adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, wsPositionXYZw,
+                                               shearCoefficientAlpha, shearZh)
         else:
-            velocitiesTurbines = _florisDiscontinuous.floris_velocity(wakeOverlapTRel_v, Ct, axialInduction, \
-                                                                axialIndProvided, useaUbU, keCorrCT, Region2CT, ke, \
-                                                                Vinf, keCorrArray, turbineXw, yaw, rotorDiameter, MU, \
-                                                                aU, bU)
-            # print 'here'
-
+             # call to fortran code to obtain output values
+            wtVelocity, wakeCentersYT, wakeDiametersT, wakeOverlapTRel = \
+                _florisDiscontinuous.floris(turbineXw, turbineYw, yawDeg, rotorDiameter, Vinf,
+                                                           Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
+                                                           MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
+                                                           Region2CT, keCorrArray, useWakeAngle,
+                                                           adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU)
         # pass outputs to self
-        resids['velocitiesTurbines%i' % self.direction_id] = velocitiesTurbines - unknowns['velocitiesTurbines%i' %
-                                                                                           self.direction_id]
-        # resids['wt_power%i' % self.direction_id] = wt_power - unknowns['wt_power%i' % self.direction_id]
-        # resids['power%i' % self.direction_id] = power - unknowns['power%i' % self.direction_id]
-        # print resids['velocitiesTurbines%i' % self.direction_id], unknowns['velocitiesTurbines%i' % self.direction_id]
-
-        # print 'velocitiesTurbines: ', velocitiesTurbines
-        # print 'wt_power: ', wt_power
-        # print 'power: ', power
+        resids['wtVelocity%i' % self.direction_id] = \
+            wtVelocity - unknowns['wtVelocity%i' % self.direction_id]
 
     def linearize(self, params, unknowns, resids):
-        # print 'entering power linearize'
-        # number of turbines
-        nTurbines = self.nTurbines
+
+        # obtain id for this wind direction
         direction_id = self.direction_id
 
-        # number of directions to differentiate
-        nbdirs = nTurbines
-
-        # reassign input variables
-        wakeOverlapTRel_v = params['wakeOverlapTRel']
-        cosFac = params['cosFac']
-        Region2CT = params['floris_params:Region2CT']
-        Ct = params['Ct']
-        Vinf = params['wind_speed']
+        # x and y positions w.r.t. the wind dir. (wind dir. = +x)
         turbineXw = params['turbineXw']
-        axialInduction = params['axialInduction']
+        turbineYw = params['turbineYw']
+
+        # yaw wrt wind dir. (wind dir. = +x)
+        yawDeg = params['yaw%i' % self.direction_id]
+
+        # turbine specs
         rotorDiameter = params['rotorDiameter']
-        rho = params['air_density']
-        generator_efficiency = params['generator_efficiency']
-        Cp = params['Cp']
-        yaw = params['yaw%i' % self.direction_id]
 
-        # set floris parameter values
-        if params['floris_params:FLORISoriginal']:
+        # air flow
+        Vinf = params['wind_speed']
+        Ct = params['Ct']
 
-            ke = 0.065
-            keCorrCT = 0.0
-            keCorrArray = 0.0
-            MU = np.array([0.5, 1.0, 5.5])
-            useaUbU = True
-            aU = 5.0
-            bU = 1.66
-            axialIndProvided = True
+        # wake deflection
+        kd = params['floris_params:kd']
+        bd = params['floris_params:bd']
+        initialWakeDisplacement = params['floris_params:initialWakeDisplacement']
+        useWakeAngle = params['floris_params:useWakeAngle']
+        initialWakeAngle = params['floris_params:initialWakeAngle']
 
-        else:
-            ke = params['floris_params:ke']
-            keCorrCT = params['floris_params:keCorrCT']
-            keCorrArray = params['floris_params:keCorrArray']
-            MU = params['floris_params:MU']
-            useaUbU = params['floris_params:useaUbU']
-            aU = params['floris_params:aU']
-            bU = params['floris_params:bU']
+        # wake expansion
+        ke = params['floris_params:ke']
+        adjustInitialWakeDiamToYaw = params['floris_params:adjustInitialWakeDiamToYaw']
 
-            axialIndProvided = params['floris_params:axialIndProvided']
+        # velocity deficit
+        MU = params['floris_params:MU']
+        useaUbU = params['floris_params:useaUbU']
+        aU = params['floris_params:aU']
+        bU = params['floris_params:bU']
+        me = params['floris_params:me']
+        cos_spread = params['floris_params:cos_spread']
 
-        # see execute(self) for explanation
-        # p_near0 = self.p_near0
-        # p_near0 = -1.0
+        # logicals
+        Region2CT = params['floris_params:Region2CT']
+        axialInduction = params['axialInduction']
+        keCorrCT = params['floris_params:keCorrCT']
+        keCorrArray = params['floris_params:keCorrArray']
+        axialIndProvided = params['floris_params:axialIndProvided']
 
-        # create jacobian dict
+        # define jacobian size
+        nTurbines = len(turbineXw)
+        nDirs = nTurbines
+
+        # define input array to direct differentiation
+        velocitiesTurbinesb = np.eye(nDirs, nTurbines)
+
+        # call to fortran code to obtain output values
+        turbineXwb, turbineYwb, yawDegb, rotorDiameterb, Ctb, axialInductionb = \
+            _floris.floris_bv(turbineXw, turbineYw, yawDeg, rotorDiameter, Vinf,
+                                             Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
+                                             MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
+                                             Region2CT, keCorrArray, useWakeAngle,
+                                             adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU,
+                                             velocitiesTurbinesb)
+
+        # initialize Jacobian dict
         J = {}
 
-        # input arrays to direct differentiation
-        velocitiesTurbinesb = np.eye(nbdirs, nTurbines)
-        # velocitiesTurbinesb = np.zeros((nbdirs, nTurbines))
-        # velocitiesTurbinesb[:, 0] = 1.0
-        # wt_powerb = np.zeros((nbdirs, nTurbines))
-        # powerb = np.zeros(nbdirs)
-        # print np.size(velocitiesTurbinesb), velocitiesTurbinesb
-        # call to fortran to obtain gradients of velocitiesTurbines
-        # wakeOverlapTRel_vb, cosFac_vb, Ctb, axialInductionb, turbineXwb, yawb, rotorDiameterb, Cpb\
-        #     = _floris.floris_power_bv(wakeOverlapTRel_v, cosFac, Ct, axialInduction, axialIndProvided, useaUbU,
-        #                               keCorrCT, Region2CT, ke, Vinf, keCorrArray, turbineXw, yaw, p_near0, self.splineshift,
-        #                               rotorDiameter, MU, rho, aU, bU, Cp, generator_efficiency, velocitiesTurbinesb,
-        #                               wt_powerb, powerb)
+        # collect values of the Jacobian
+        J['wtVelocity%i' % direction_id, 'turbineXw'] = turbineXwb
+        J['wtVelocity%i' % direction_id, 'turbineYw'] = turbineYwb
+        J['wtVelocity%i' % direction_id, 'yaw%i' % direction_id] = yawDegb
+        J['wtVelocity%i' % direction_id, 'rotorDiameter'] = rotorDiameterb
+        J['wtVelocity%i' % direction_id, 'Ct'] = Ctb
+        J['wtVelocity%i' % direction_id, 'axialInduction'] = axialInductionb
 
-          # call to fortran to obtain gradients of velocitiesTurbines
-        wakeOverlapTRel_vb, cosFac_vb, Ctb, axialInductionb, turbineXwb, yawb, rotorDiameterb\
-            = _floris.floris_velocity_bv(wakeOverlapTRel_v, cosFac, Ct, axialInduction, axialIndProvided, useaUbU,
-                                      keCorrCT, Region2CT, ke, Vinf, keCorrArray, turbineXw, yaw,
-                                      rotorDiameter, MU, aU, bU, velocitiesTurbinesb)
-        # print 'dOL', wakeOverlapTRel_vb.shape
-        # print 'Ct', Ctb
-        # print 'AI', axialInductionb
-        # print 'Xw', turbineXwb
-        # print 'Y', yawb
-        # print 'D', rotorDiameterb
-        # print 'Cp', Cpb
-
-        # collect values of the jacobian of velocitiesTurbines
-        J['velocitiesTurbines%i' % direction_id, 'wakeOverlapTRel'] = wakeOverlapTRel_vb
-        J['velocitiesTurbines%i' % direction_id, 'cosFac'] = cosFac_vb
-        J['velocitiesTurbines%i' % direction_id, 'Ct'] = Ctb
-        # J['velocitiesTurbines%i' % direction_id, 'Cp'] = Cpb
-        J['velocitiesTurbines%i' % direction_id, 'axialInduction'] = axialInductionb
-        J['velocitiesTurbines%i' % direction_id, 'turbineXw'] = turbineXwb
-        J['velocitiesTurbines%i' % direction_id, 'yaw%i' % direction_id] = yawb
-        J['velocitiesTurbines%i' % direction_id, 'rotorDiameter'] = rotorDiameterb
-
-        # input arrays to direct differentiation
-        # velocitiesTurbinesb[:, :] = 0.0
-        # wt_powerb = np.eye(nbdirs, nTurbines)
-        #
-        # # call to fortran to obtain gradients wt_power
-        # wakeOverlapTRel_vb, cosFac_vb, Ctb, axialInductionb, turbineXwb, yawb, rotorDiameterb, Cpb\
-        #     = _floris.floris_power_bv(wakeOverlapTRel_v, cosFac, Ct, axialInduction, axialIndProvided, useaUbU,
-        #                               keCorrCT, Region2CT, ke, Vinf, keCorrArray, turbineXw, yaw, p_near0, self.splineshift,
-        #                               rotorDiameter, MU, rho, aU, bU, Cp, generator_efficiency, velocitiesTurbinesb,
-        #                               wt_powerb, powerb)
-
-        # # print wakeOverlapTRel_vb.shape, wt_powerb.shape
-        # # collect values of the jacobian of wt_power
-        # J['wt_power%i' % direction_id, 'wakeOverlapTRel'] = wakeOverlapTRel_vb
-        # J['wt_power%i' % direction_id, 'cosFac'] = cosFac_vb
-        # J['wt_power%i' % direction_id, 'Ct'] = Ctb
-        # J['wt_power%i' % direction_id, 'Cp'] = Cpb
-        # J['wt_power%i' % direction_id, 'axialInduction'] = axialInductionb
-        # J['wt_power%i' % direction_id, 'turbineXw'] = turbineXwb
-        # J['wt_power%i' % direction_id, 'yaw%i' % direction_id] = yawb
-        # J['wt_power%i' % direction_id, 'rotorDiameter'] = rotorDiameterb
-        #
-        # # input arrays to direct differentiation
-        # wt_powerb[:, :] = 0.0
-        # powerb[0] = 1.0
-        #
-        # # call to fortran to obtain gradients of power
-        # wakeOverlapTRel_vb, cosFac_vb, Ctb, axialInductionb, turbineXwb, yawb, rotorDiameterb, Cpb\
-        #     = _floris.floris_power_bv(wakeOverlapTRel_v, cosFac, Ct, axialInduction, axialIndProvided, useaUbU,
-        #                               keCorrCT, Region2CT, ke, Vinf, keCorrArray, turbineXw, yaw, p_near0, self.splineshift,
-        #                               rotorDiameter, MU, rho, aU, bU, Cp, generator_efficiency, velocitiesTurbinesb,
-        #                               wt_powerb, powerb)
-        #
-        # #print 'OL', wakeOverlapTRel_vb[0, :]#, Ctb[0, :].shape, Cpb[0, :].shape, axialInductionb[0, :], turbineXwb[0, :].shape, yawb[0, :].shape, rotorDiameterb[0, :].shape
-        #
-        # # # print np.array(yawb[:1, :])
-        # # collect values of the jacobian of wt_power
-        # # print 'vb', wakeOverlapTRel_vb
-        # J['power%i' % direction_id, 'wakeOverlapTRel'] = np.array(wakeOverlapTRel_vb[:1, :])
-        # J['power%i' % direction_id, 'cosFac'] = np.array(cosFac_vb[:1, :])
-        # J['power%i' % direction_id, 'Ct'] = np.array(Ctb[:1, :])
-        # J['power%i' % direction_id, 'Cp'] = np.array(Cpb[:1, :])
-        # J['power%i' % direction_id, 'axialInduction'] = np.array(axialInductionb[:1, :])
-        # J['power%i' % direction_id, 'turbineXw'] = np.array(turbineXwb[:1, :])
-        # J['power%i' % direction_id, 'yaw%i' % direction_id] = np.array(yawb[:1, :])
-        # J['power%i' % direction_id, 'rotorDiameter'] = np.array(rotorDiameterb[:1, :])
-
-        # print 'leaving power linearize'
-        # print J
         return J
 
 
-# Groups using FLORIS
-class FLORIS(Group):
+# Groups using FLORIS # TODO Make this group unnecessary and remove it
+class FlorisGroup(Group):
     """ Group containing all necessary components of the floris model """
 
-    def __init__(self, nTurbines, resolution, direction_id=0, differentiable=True, optimizingLayout=False):
-        super(FLORIS, self).__init__()
-        splineshift = 0.0
+    def __init__(self, nTurbines, direction_id=0, differentiable=True,
+                 use_rotor_components=False, nSamples=0):
+        super(FlorisGroup, self).__init__()
 
-        # print differentiable
-        # print 'in myFloris direction %i' % direction_id
-        if optimizingLayout:
-            splineshift = 1.0
-        self.add('f_1', WindFrame(nTurbines, resolution, differentiable=differentiable), promotes=['*'])
-        self.add('f_2', floris_wcent_wdiam(nTurbines, direction_id=direction_id, differentiable=differentiable, splineshift=splineshift),
+        self.add('f_1', WindFrame(nTurbines, differentiable=differentiable, nSamples=nSamples),
                  promotes=['*'])
-        self.add('f_3', floris_overlap(nTurbines, differentiable=differentiable, splineshift=splineshift),
-                 promotes=['*'])
-        self.add('f_4', floris_velocity(nTurbines, direction_id=direction_id, differentiable=differentiable,
-                                     splineshift=splineshift),
+        self.add('f_0', Floris(nTurbines, direction_id=direction_id, differentiable=differentiable,
+                               use_rotor_components=use_rotor_components, nSamples=nSamples),
                  promotes=['*'])
 
 
 class RotorSolveGroup(Group):
 
-    def __init__(self, nTurbines, resolution=0, direction_id=0, datasize=0,
-                 differentiable=True, optimizingLayout=False):
+    def __init__(self, nTurbines, direction_id=0, datasize=0, differentiable=True,
+                 use_rotor_components=False, nSamples=0):
 
         super(RotorSolveGroup, self).__init__()
-        epsilon = 1E-12
 
-        # self.nl_solver = NLGaussSeidel()
-        # self.ln_solver = Brent()
-        # self.nl_solver.options['atol'] = epsilon
-        # self.nl_solver.options['rtol'] = epsilon
-        # self.ln_solver = LinearGaussSeidel()
+        # set up iterative solvers
+        epsilon = 1E-6
         self.ln_solver = ScipyGMRES()
-        # self.ln_solver = DirectSolver()
-        # self.ln_solver = DirectSolver()
-
-        # self.ln_solver = PetscKSP()
         self.nl_solver = NLGaussSeidel()
-        # self.nl_solver = Newton()
-        # self.nl_solver.options['iprint'] = 1
-        # self.ln_solver.options['iprint'] = 1
-        # self.nl_solver.options['maxiter'] = 200
-        # self.ln_solver = PetscKSP()
-        # self.ln_solver = Backtracking()
-        # self.ln_solver = Brent()
-        # self.ln_solver.options['state_var'] = 'velocitiesTurbines%i' % direction_id
-        # self.nl_solver.options['lower_bound'] = 0.
-        # self.nl_solver.options['upper_bound'] = 100.
         self.ln_solver.options['atol'] = epsilon
-        # self.ln_solver.options['rtol'] = epsilon
-        # self.ln_solver.setup('direction_group%i' % direction_id)
-        # self.ln_solver.solve('velocitiesTurbines%i' % direction_id)
 
         self.add('CtCp', CPCT_Interpolate_Gradients_Smooth(nTurbines, direction_id=direction_id, datasize=datasize),
-                     promotes=['gen_params:*', 'yaw%i' % direction_id,
-                               'velocitiesTurbines%i' % direction_id])
+                 promotes=['gen_params:*', 'yaw%i' % direction_id,
+                           'wtVelocity%i' % direction_id, 'Cp_out'])
 
-        self.add('floris', FLORIS(nTurbines, resolution=resolution, direction_id=direction_id,
-                                    differentiable=differentiable, optimizingLayout=optimizingLayout),
-                 promotes=['floris_params:*', 'wind_speed', 'wind_direction', 'air_density', 'axialInduction',
-                           'generator_efficiency', 'turbineX', 'turbineY', 'turbineZ', 'rotorDiameter', 'yaw%i' % direction_id,
-                           'velocitiesTurbines%i' % direction_id, 'wakeCentersYT', 'wakeCentersZT', 'wakeDiametersT',
-                           'wakeOverlapTRel', 'Cp']) #TODO added turbineZ and wakeCentersZT
+        self.add('floris', FlorisGroup(nTurbines, direction_id=direction_id,
+                                       differentiable=differentiable, use_rotor_components=use_rotor_components,
+                                       nSamples=nSamples),
+                 promotes=(['floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                            'turbineX', 'turbineY', 'rotorDiameter', 'yaw%i' % direction_id, 'hubHeight',
+                            'wtVelocity%i' % direction_id, 'wakeCentersYT', 'wakeDiametersT',
+                            'wakeOverlapTRel']
+                           if (nSamples == 0) else
+                           ['floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                            'turbineX', 'turbineY', 'rotorDiameter', 'yaw%i' % direction_id, 'hubHeight',
+                            'wtVelocity%i' % direction_id, 'wakeCentersYT', 'wakeDiametersT',
+                            'wakeOverlapTRel', 'wsPositionX', 'wsPositionY', 'wsPositionZ',
+                            'wsArray%i' % direction_id]))
         self.connect('CtCp.Ct_out', 'floris.Ct')
-        self.connect('CtCp.Cp_out', 'Cp')
 
 
-class DirectionGroupFLORIS(Group):
+# TODO make this group general and put it in a different file
+class DirectionGroup(Group):
     """
     Group containing all necessary components for wind plant calculations
     in a single direction
     """
 
-    def __init__(self, nTurbines, resolution=0, direction_id=0, use_rotor_components=False, datasize=0,
-                 differentiable=True, optimizingLayout=False, add_IdepVarComps=True):
-        super(DirectionGroupFLORIS, self).__init__()
-        epsilon = 1e-6
-
-        # self.add('p0', IndepVarComp('wind_direction', val=0.0, units='deg'), promotes=['*'])
+    def __init__(self, nTurbines, direction_id=0, use_rotor_components=False, datasize=0,
+                 differentiable=True, add_IdepVarComps=True, nSamples=0):
+        super(DirectionGroup, self).__init__()
 
         if add_IdepVarComps:
-            add_floris_params_IndepVarComps(self)
+            add_floris_params_IndepVarComps(self, use_rotor_components=use_rotor_components)
             add_gen_params_IdepVarComps(self, datasize=datasize)
 
-        # self.add('fp', FLORISParameters(), promotes=['*'])
         if use_rotor_components:
-            self.add('myFloris', RotorSolveGroup(nTurbines, resolution=resolution, direction_id=direction_id, datasize=datasize,
-                                                differentiable=differentiable, optimizingLayout=optimizingLayout),
-                     promotes=['gen_params:*', 'yaw%i' % direction_id, 'velocitiesTurbines%i' % direction_id,
-                               'floris_params:*', 'wind_speed', 'wind_direction', 'air_density', 'axialInduction',
-                               'generator_efficiency', 'turbineX', 'turbineY', 'turbineZ', 'rotorDiameter',
-                               'wakeCentersYT', 'wakeCentersZT', 'wakeDiametersT',
-                               'wakeOverlapTRel']) #TODO added turbineZ and wakeCentersZT
+            self.add('myFloris', RotorSolveGroup(nTurbines, direction_id=direction_id,
+                                                 datasize=datasize, differentiable=differentiable,
+                                                 nSamples=nSamples, use_rotor_components=use_rotor_components),
+                     promotes=(['gen_params:*', 'yaw%i' % direction_id, 'wtVelocity%i' % direction_id,
+                                'floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                                'turbineX', 'turbineY', 'rotorDiameter', 'hubHeight', 'wakeCentersYT', 'wakeDiametersT',
+                                'wakeOverlapTRel']
+                               if (nSamples == 0) else
+                               ['gen_params:*', 'yaw%i' % direction_id, 'wtVelocity%i' % direction_id,
+                                'floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                                'turbineX', 'turbineY', 'rotorDiameter', 'hubHeight', 'wakeCentersYT', 'wakeDiametersT',
+                                'wakeOverlapTRel', 'wsPositionX', 'wsPositionY', 'wsPositionZ',
+                                'wsArray%i' % direction_id]))
         else:
             self.add('CtCp', AdjustCtCpYaw(nTurbines, direction_id, differentiable),
-                     promotes=['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'yaw%i' % direction_id])
+                     promotes=['Ct_in', 'Cp_in', 'gen_params:*', 'yaw%i' % direction_id])
 
-            self.add('myFloris', FLORIS(nTurbines, resolution=resolution, direction_id=direction_id, differentiable=differentiable, optimizingLayout=optimizingLayout),
-                     promotes=['floris_params:*', 'wind_speed', 'wind_direction', 'air_density', 'axialInduction',
-                               'generator_efficiency', 'turbineX', 'turbineY', 'turbineZ', 'rotorDiameter', 'yaw%i' % direction_id,
-                               'velocitiesTurbines%i' % direction_id, 'wakeCentersYT', 'wakeCentersZT', 'wakeDiametersT',
-                               'wakeOverlapTRel']) #TODO added turbineZ and wakeCentersZT
+            self.add('myFloris', FlorisGroup(nTurbines, direction_id=direction_id,
+                                             differentiable=differentiable, use_rotor_components=use_rotor_components,
+                                             nSamples=nSamples),
+                     promotes=(['floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                                'turbineX', 'turbineY', 'rotorDiameter', 'yaw%i' % direction_id, 'hubHeight',
+                                'wtVelocity%i' % direction_id, 'wakeCentersYT', 'wakeDiametersT',
+                                'wakeOverlapTRel']
+                               if (nSamples == 0) else
+                               ['floris_params:*', 'wind_speed', 'wind_direction', 'axialInduction',
+                                'turbineX', 'turbineY', 'rotorDiameter', 'yaw%i' % direction_id, 'hubHeight',
+                                'wtVelocity%i' % direction_id, 'wakeCentersYT', 'wakeDiametersT',
+                                'wakeOverlapTRel', 'wsPositionX', 'wsPositionY', 'wsPositionZ',
+                                'wsArray%i' % direction_id]))
 
         self.add('powerComp', WindDirectionPower(nTurbines=nTurbines, direction_id=direction_id, differentiable=True,
                                                  use_rotor_components=use_rotor_components),
-                 promotes=['air_density', 'generator_efficiency', 'rotorDiameter',
-                           'velocitiesTurbines%i' % direction_id,
-                           'wt_power%i' % direction_id, 'power%i' % direction_id])
+                 promotes=['air_density', 'generatorEfficiency', 'rotorDiameter',
+                           'wtVelocity%i' % direction_id,
+                           'wtPower%i' % direction_id, 'dir_power%i' % direction_id])
 
         if use_rotor_components:
-            self.connect('myFloris.Cp', 'powerComp.Cp')
+            self.connect('myFloris.Cp_out', 'powerComp.Cp')
         else:
             self.connect('CtCp.Ct_out', 'myFloris.Ct')
-            self.connect('CtCp.Cp_out', 'myFloris.Cp')
-            self.connect('myFloris.Cp', 'powerComp.Cp')
+            self.connect('CtCp.Cp_out', 'powerComp.Cp')
 
 
-class AEPGroupFLORIS(Group):
+# TODO make this group general and put it in a different file
+class AEPGroup(Group):
     """
     Group containing all necessary components for wind plant AEP calculations using the FLORIS model
     """
 
-    def __init__(self, nTurbines, resolution=0, nDirections=1, use_rotor_components=False, datasize=0,
-                 differentiable=True, optimizingLayout=False):
+    def __init__(self, nTurbines, nDirections=1, use_rotor_components=False, datasize=0,
+                 differentiable=True, optimizingLayout=False, nSamples=0):
 
-        super(AEPGroupFLORIS, self).__init__()
+        super(AEPGroup, self).__init__()
 
         # providing default unit types for general MUX/DeMUX components
         power_units = 'kW'
         direction_units = 'deg'
         wind_speed_units = 'm/s'
 
+        # print 'SAMPLES: ', nSamples
+
         # add necessary inputs for group
         self.add('dv0', IndepVarComp('windDirections', np.zeros(nDirections), units=direction_units), promotes=['*'])
         self.add('dv1', IndepVarComp('windSpeeds', np.zeros(nDirections), units=wind_speed_units), promotes=['*'])
-        self.add('dv2', IndepVarComp('windrose_frequencies', np.ones(nDirections)), promotes=['*'])
+        self.add('dv2', IndepVarComp('windFrequencies', np.ones(nDirections)), promotes=['*'])
         self.add('dv3', IndepVarComp('turbineX', np.zeros(nTurbines), units='m'), promotes=['*'])
         self.add('dv4', IndepVarComp('turbineY', np.zeros(nTurbines), units='m'), promotes=['*'])
-        self.add('dv5', IndepVarComp('turbineZ', np.zeros(nTurbines), units='m'), promotes=['*']) #TODO added here
 
         # add vars to be seen by MPI and gradient calculations
-        self.add('dv6', IndepVarComp('rotorDiameter', np.zeros(nTurbines), units='m'), promotes=['*'])
-        self.add('dv7', IndepVarComp('axialInduction', np.zeros(nTurbines)), promotes=['*'])
-        self.add('dv8', IndepVarComp('generator_efficiency', np.zeros(nTurbines)), promotes=['*'])
-        self.add('dv9', IndepVarComp('air_density', val=1.1716, units='kg/(m*m*m)'), promotes=['*'])
+        self.add('dv5', IndepVarComp('rotorDiameter', np.zeros(nTurbines), units='m'), promotes=['*'])
+        self.add('dv6', IndepVarComp('axialInduction', np.zeros(nTurbines)), promotes=['*'])
+        self.add('dv7', IndepVarComp('generator_efficiency', np.zeros(nTurbines)), promotes=['*'])
+        self.add('dv8', IndepVarComp('air_density', val=1.1716, units='kg/(m*m*m)'), promotes=['*'])
 
         # add variable tree IndepVarComps
-        add_floris_params_IndepVarComps(self)
+        add_floris_params_IndepVarComps(self, use_rotor_components=use_rotor_components)
         add_gen_params_IdepVarComps(self, datasize=datasize)
 
         if not use_rotor_components:
-            self.add('dv10', IndepVarComp('Ct_in', np.zeros(nTurbines)), promotes=['*'])
-            self.add('dv11', IndepVarComp('Cp_in', np.zeros(nTurbines)), promotes=['*'])
+            self.add('dv9', IndepVarComp('Ct_in', np.zeros(nTurbines)), promotes=['*'])
+            self.add('dv10', IndepVarComp('Cp_in', np.zeros(nTurbines)), promotes=['*'])
 
         # add components and groups
         self.add('windDirectionsDeMUX', DeMUX(nDirections, units=direction_units))
@@ -1055,25 +686,36 @@ class AEPGroupFLORIS(Group):
             for direction_id in np.arange(0, nDirections):
                 # print 'assigning direction group %i' % direction_id
                 pg.add('direction_group%i' % direction_id,
-                       DirectionGroupFLORIS(nTurbines=nTurbines, resolution=resolution, direction_id=direction_id,
-                                            use_rotor_components=use_rotor_components, datasize=datasize,
-                                            differentiable=differentiable, optimizingLayout=optimizingLayout,
-                                            add_IdepVarComps=False),
-                       promotes=['gen_params:*', 'floris_params:*', 'air_density',
-                                 'axialInduction', 'generator_efficiency', 'turbineX', 'turbineY', 'turbineZ',
-                                 'yaw%i' % direction_id, 'rotorDiameter', 'velocitiesTurbines%i' % direction_id,
-                                 'wt_power%i' % direction_id, 'power%i' % direction_id])#, 'wakeCentersYT', 'wakeDiametersT']) TODO added turbineZ
+                       DirectionGroup(nTurbines=nTurbines, direction_id=direction_id,
+                                      use_rotor_components=use_rotor_components, datasize=datasize,
+                                      differentiable=differentiable, add_IdepVarComps=False, nSamples=nSamples),
+                       promotes=(['gen_params:*', 'floris_params:*', 'air_density',
+                                  'axialInduction', 'generatorEfficiency', 'turbineX', 'turbineY', 'hubHeight',
+                                  'yaw%i' % direction_id, 'rotorDiameter', 'wtVelocity%i' % direction_id,
+                                  'wtPower%i' % direction_id, 'dir_power%i' % direction_id]
+                                 if (nSamples == 0) else
+                                 ['gen_params:*', 'floris_params:*', 'air_density',
+                                  'axialInduction', 'generatorEfficiency', 'turbineX', 'turbineY', 'hubHeight',
+                                  'yaw%i' % direction_id, 'rotorDiameter', 'wsPositionX', 'wsPositionY',
+                                  'wsPositionZ', 'wtVelocity%i' % direction_id,
+                                  'wtPower%i' % direction_id, 'dir_power%i' % direction_id, 'wsArray%i' % direction_id]))
         else:
             for direction_id in np.arange(0, nDirections):
                 # print 'assigning direction group %i' % direction_id
                 pg.add('direction_group%i' % direction_id,
-                       DirectionGroupFLORIS(nTurbines=nTurbines, resolution=resolution, direction_id=direction_id,
-                                            use_rotor_components=use_rotor_components, datasize=datasize,
-                                            differentiable=differentiable, add_IdepVarComps=False),
-                       promotes=['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'axialInduction',
-                                 'generator_efficiency', 'turbineX', 'turbineY', 'turbineZ', 'yaw%i' % direction_id, 'rotorDiameter',
-                                 'velocitiesTurbines%i' % direction_id, 'wt_power%i' % direction_id,
-                                 'power%i' % direction_id])#, 'wakeCentersYT', 'wakeDiametersT']) TODO addded turbineZ
+                       DirectionGroup(nTurbines=nTurbines, direction_id=direction_id,
+                                      use_rotor_components=use_rotor_components, datasize=datasize,
+                                      differentiable=differentiable, add_IdepVarComps=False, nSamples=nSamples),
+                       promotes=(['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'axialInduction',
+                                  'generatorEfficiency', 'turbineX', 'turbineY', 'yaw%i' % direction_id, 'rotorDiameter',
+                                  'hubHeight', 'wtVelocity%i' % direction_id, 'wtPower%i' % direction_id,
+                                  'dir_power%i' % direction_id]
+                                 if (nSamples == 0) else
+                                 ['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'axialInduction',
+                                  'generatorEfficiency', 'turbineX', 'turbineY', 'yaw%i' % direction_id, 'rotorDiameter',
+                                  'hubHeight',  'wsPositionX', 'wsPositionY', 'wsPositionZ',
+                                  'wtVelocity%i' % direction_id, 'wtPower%i' % direction_id,
+                                  'dir_power%i' % direction_id, 'wsArray%i' % direction_id]))
 
         self.add('powerMUX', MUX(nDirections, units=power_units))
         self.add('AEPcomp', WindFarmAEP(nDirections), promotes=['*'])
@@ -1085,8 +727,8 @@ class AEPGroupFLORIS(Group):
             self.add('y%i' % direction_id, IndepVarComp('yaw%i' % direction_id, np.zeros(nTurbines), units='deg'), promotes=['*'])
             self.connect('windDirectionsDeMUX.output%i' % direction_id, 'direction_group%i.wind_direction' % direction_id)
             self.connect('windSpeedsDeMUX.output%i' % direction_id, 'direction_group%i.wind_speed' % direction_id)
-            self.connect('power%i' % direction_id, 'powerMUX.input%i' % direction_id)
-        self.connect('powerMUX.Array', 'power_directions')
+            self.connect('dir_power%i' % direction_id, 'powerMUX.input%i' % direction_id)
+        self.connect('powerMUX.Array', 'dirPowers')
 
 
 # Testing code for development only
@@ -1196,7 +838,7 @@ if __name__ == "__main__":
     top.check_partial_derivatives()
     print(root.p.unknowns['power'])
     print(root.p.unknowns['wt_power'])
-    print(root.p.unknowns['velocitiesTurbines'])
+    print(root.p.unknowns['wtVelocity'])
     d_wakeOL = np.zeros([wakeOL.size])
     step = 200
     for i in range(0, 2):
@@ -1256,7 +898,7 @@ if __name__ == "__main__":
 #
 #         # optional print statements from power
 #         if verbose:
-#             print "wind speed at turbines %s [m/s]" % velocitiesTurbines
+#             print "wind speed at turbines %s [m/s]" % wtVelocity
 #             print "rotor area %d" % (np.pi*rotorDiameter[0]*rotorDiameter[0]/4.0)
 #             print "rho %s" % rho
 #             print "generator_efficiency %s" % generator_efficiency
@@ -1265,3 +907,4 @@ if __name__ == "__main__":
 #     def linearize(self):
 #         J = {}
 #         return J
+
