@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from openmdao.api import Problem, Group, IndepVarComp
 import time
 
+"""This is an example run script that includes both COE and the tower model"""
+
 if __name__=='__main__':
 
     """set up the wind farm"""
@@ -40,8 +42,8 @@ if __name__=='__main__':
     turbineY = np.ndarray.flatten(ypoints)
 
     """set up 3D aspects of wind farm"""
-    turbineH1 = 75
-    turbineH2 = 150
+    turbineH1 = 87.6
+    turbineH2 = 120
     H1_H2 = np.array([])
     for i in range(nTurbs/2):
         H1_H2 = np.append(H1_H2, 0)
@@ -109,7 +111,7 @@ if __name__=='__main__':
     z_fullH1 = np.linspace(0.0, turbineH1, n)
     z_fullH2 = np.linspace(0.0, turbineH2, n)
     L_reinforced = 30.0*np.ones(n)  # [m] buckling length
-    #yaw = 0.0
+    Toweryaw = 0.0
 
     # --- material props ---
     E = 210e9*np.ones(n)
@@ -203,7 +205,8 @@ if __name__=='__main__':
     nFull = len(z_fullH1)
     wind = 'PowerWind'
 
-    """set up the problem for COE"""
+    """set up the problem"""
+    start = time.time()
     prob = Problem()
     root = prob.root = Group()
 
@@ -212,8 +215,20 @@ if __name__=='__main__':
                 use_rotor_components=False, datasize=0, differentiable=True,
                 optimizingLayout=False, nSamples=0), promotes=['*'])
     root.add('COEComponent', COEComponent(nTurbs), promotes=['*'])
-    #root.add('TowerH1', TowerSE())
-    #root.add('TowerH2', TowerSE())
+    root.add('TowerH1', TowerSE(nPoints, nFull, nK, nMass, nPL, nDEL, wind=wind), promotes=['d_param',
+                        't_param','L_reinforced',
+                        'E','G','sigma_y','kidx','kx','ky','kz','ktx','kty',
+                        'ktz','midx','m','mIxx','mIyy','mIzz','mIxy','mIxz','mIyz',
+                        'mrhox','mrhoy','mrhoz','addGravityLoadForExtraMass','g',
+                        'gamma_f','gamma_m','gamma_n','gamma_b','life','m_SN',
+                        'gc.min_d_to_t','gc.min_taper','M_DEL','gamma_fatigue'])
+    root.add('TowerH2', TowerSE(nPoints, nFull, nK, nMass, nPL, nDEL, wind=wind), promotes=['d_param',
+                        't_param','L_reinforced',
+                        'E','G','sigma_y','kidx','kx','ky','kz','ktx','kty',
+                        'ktz','midx','m','mIxx','mIyy','mIzz','mIxy','mIxz','mIyz',
+                        'mrhox','mrhoy','mrhoz','addGravityLoadForExtraMass','g',
+                        'gamma_f','gamma_m','gamma_n','gamma_b','life','m_SN',
+                        'gc.min_d_to_t','gc.min_taper','M_DEL','gamma_fatigue'])
 
     prob.setup()
 
@@ -240,10 +255,147 @@ if __name__=='__main__':
     prob['zref'] = wind_zref
     prob['z0'] = wind_z0       # turns off cosine spread (just needs to be very large)
 
+    """tower structural properties"""
+    # --- geometry ----
+    prob['TowerH1.z_param'] = z_paramH1
+    prob['TowerH2.z_param'] = z_paramH2
+    prob['d_param'] = d_param
+    prob['t_param'] = t_param
+    prob['TowerH1.z_full'] = z_fullH1
+    prob['TowerH2.z_full'] = z_fullH2
+    prob['L_reinforced'] = L_reinforced
+    prob['TowerH1.yaw'] = Toweryaw
+    prob['TowerH2.yaw'] = Toweryaw
+
+    # --- material props ---
+    prob['E'] = E
+    prob['G'] = G
+    prob['TowerH1.tower1.rho'] = rho
+    prob['TowerH2.tower1.rho'] = rho
+    prob['sigma_y'] = sigma_y
+
+    # --- spring reaction data.  Use float('inf') for rigid constraints. ---
+    prob['kidx'] = kidx
+    prob['kx'] = kx
+    prob['ky'] = ky
+    prob['kz'] = kz
+    prob['ktx'] = ktx
+    prob['kty'] = kty
+    prob['ktz'] = ktz
+
+    # --- extra mass ----
+    prob['midx'] = midx
+    prob['m'] = m
+    prob['mIxx'] = mIxx
+    prob['mIyy'] = mIyy
+    prob['mIzz'] = mIzz
+    prob['mIxy'] = mIxy
+    prob['mIxz'] = mIxz
+    prob['mIyz'] = mIyz
+    prob['mrhox'] = mrhox
+    prob['mrhoy'] = mrhoy
+    prob['mrhoz'] = mrhoz
+    prob['addGravityLoadForExtraMass'] = addGravityLoadForExtraMass
+    # -----------
+
+    # --- wind ---
+    prob['TowerH1.zref'] = wind_zref
+    prob['TowerH2.zref'] = wind_zref
+    prob['TowerH1.z0'] = wind_z0
+    prob['TowerH2.z0'] = wind_z0
+    # ---------------
+
+    # # --- loading case 1: max Thrust ---
+    prob['TowerH1.wind1.Uref'] = wind_Uref1
+    prob['TowerH1.tower1.plidx'] = plidx1
+    prob['TowerH1.tower1.Fx'] = Fx1
+    prob['TowerH1.tower1.Fy'] = Fy1
+    prob['TowerH1.tower1.Fz'] = Fz1
+    prob['TowerH1.tower1.Mxx'] = Mxx1
+    prob['TowerH1.tower1.Myy'] = Myy1
+    prob['TowerH1.tower1.Mzz'] = Mzz1
+
+    prob['TowerH2.wind1.Uref'] = wind_Uref1
+    prob['TowerH2.tower1.plidx'] = plidx1
+    prob['TowerH2.tower1.Fx'] = Fx1
+    prob['TowerH2.tower1.Fy'] = Fy1
+    prob['TowerH2.tower1.Fz'] = Fz1
+    prob['TowerH2.tower1.Mxx'] = Mxx1
+    prob['TowerH2.tower1.Myy'] = Myy1
+    prob['TowerH2.tower1.Mzz'] = Mzz1
+    # # ---------------
+
+    # # --- loading case 2: max Wind Speed ---
+    prob['TowerH1.wind2.Uref'] = wind_Uref2
+    prob['TowerH1.tower2.plidx'] = plidx2
+    prob['TowerH1.tower2.Fx'] = Fx2
+    prob['TowerH1.tower2.Fy'] = Fy2
+    prob['TowerH1.tower2.Fz'] = Fz2
+    prob['TowerH1.tower2.Mxx'] = Mxx2
+    prob['TowerH1.tower2.Myy'] = Myy2
+    prob['TowerH1.tower2.Mzz'] = Mzz2
+
+    prob['TowerH2.wind2.Uref'] = wind_Uref2
+    prob['TowerH2.tower2.plidx'] = plidx2
+    prob['TowerH2.tower2.Fx'] = Fx2
+    prob['TowerH2.tower2.Fy'] = Fy2
+    prob['TowerH2.tower2.Fz'] = Fz2
+    prob['TowerH2.tower2.Mxx'] = Mxx2
+    prob['TowerH2.tower2.Myy'] = Myy2
+    prob['TowerH2.tower2.Mzz'] = Mzz2
+    # # ---------------
+
+    # --- safety factors ---
+    prob['gamma_f'] = gamma_f
+    prob['gamma_m'] = gamma_m
+    prob['gamma_n'] = gamma_n
+    prob['gamma_b'] = gamma_b
+    # ---------------
+
+    # --- fatigue ---
+    prob['TowerH1.z_DEL'] = z_DEL*turbineH1/87.6
+    prob['TowerH2.z_DEL'] = z_DEL*turbineH2/87.6
+    prob['M_DEL'] = M_DEL
+    prob['gamma_fatigue'] = gamma_fatigue
+    prob['life'] = life
+    prob['m_SN'] = m_SN
+    # ---------------
+
+    # --- constraints ---
+    prob['gc.min_d_to_t'] = min_d_to_t
+    prob['gc.min_taper'] = min_taper
+    # ---------------
+
+
     prob.run()
 
-    print prob['turbineZ']
-    print prob['AEP']
-    print prob['COE']
+    print 'Time to set up and run: ', time.time()-start
 
-    # print 'Time to run one iteration: ', time.time()-start
+    print 'TurbineZ: ', prob['turbineZ']
+    print 'AEP: ', prob['AEP']
+    print 'COE: ', prob['COE']
+
+    """
+    print 'Tower H1 Mass: ', prob['TowerH1.tower1.mass']
+    print 'Tower H2 Mass: ', prob['TowerH2.tower1.mass']
+
+    print 'Tower H1 Stress: Max Thrust: ', prob['TowerH1.tower1.stress']
+    print 'Tower H1 Stress: Max Wind Speed: ', prob['TowerH1.tower2.stress']
+    print 'Tower H2 Stress: Max Thrust: ', prob['TowerH2.tower1.stress']
+    print 'Tower H2 Stress: Max Wind Speed: ', prob['TowerH2.tower2.stress']
+
+    print 'Tower H1 Shell Buckling: Max Thrust: ', prob['TowerH1.tower1.shell_buckling']
+    print 'Tower H1 Shell Buckling: Max Wind Speed: ', prob['TowerH1.tower2.shell_buckling']
+    print 'Tower H2 Shell Buckling: Max Thrust: ', prob['TowerH2.tower1.shell_buckling']
+    print 'Tower H2 Shell Buckling: Max Wind Speed: ', prob['TowerH2.tower2.shell_buckling']
+
+    print 'Tower H1 Global Buckling: Max Thrust: ', prob['TowerH1.tower1.global_buckling']
+    print 'Tower H1 Global Buckling: Max Wind Speed: ', prob['TowerH1.tower2.global_buckling']
+    print 'Tower H2 Global Buckling: Max Thrust: ', prob['TowerH2.tower1.global_buckling']
+    print 'Tower H2 Global Buckling: Max Wind Speed: ', prob['TowerH2.tower2.global_buckling']
+
+    print 'Tower H1 Damage: ', prob['TowerH1.tower1.damage']
+    print 'Tower H2 Damage: ', prob['TowerH2.tower1.damage']
+    """
+
+    print 'Wind Speeds: ', prob['windSpeeds']
