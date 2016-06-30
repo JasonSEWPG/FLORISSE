@@ -44,7 +44,7 @@ class WindFrame(Component):
         self.nSamples = nSamples
 
         # flow property variables
-        self.add_param('wind_speed', val=8.0, units='m/s', desc='free stream wind velocity')
+        # self.add_param('wind_speed', np.ones(nTurbines)*8.0, units='m/s', desc='free stream wind velocity') #TODO change to an array
         self.add_param('wind_direction', val=270.0, units='deg',
                        desc='wind direction using direction from, in deg. cw from north as in meteorological data')
 
@@ -569,6 +569,114 @@ class DeMUX(Component):
             J['output%i' % i, 'Array'] = np.reshape(doutput_dArray[i, :], (1, self.nElements))
 
         return J
+
+
+class DeMUXArrays(Component):
+    """ split a given array of arrays into separate arrays """
+
+    def __init__(self, nElements, nArrays, units=None):
+
+        super(DeMUXArrays, self).__init__()
+
+        # set finite difference options (fd used for testing only)
+        self.fd_options['form'] = 'central'
+        self.fd_options['step_size'] = 1.0e-5
+        self.fd_options['step_type'] = 'relative'
+
+        # initialize necessary class attributes
+        self.nElements = nElements
+        self.nArrays = nArrays
+
+        # define input
+        if units is None:
+            self.add_param('Array', np.zeros((nArrays, nElements)), desc='ndArray of arrays')
+        else:
+            self.add_param('Array', np.zeros((nArrays, nElements)), units=units, desc='ndArray of arrays')
+
+        # define outputs
+        if units is None:
+            for i in range(0, nArrays):
+                self.add_output('output%i' % i, np.zeros(nElements), desc='scalar output')
+        else:
+            for i in range(0, nElements):
+                self.add_output('output%i' % i, np.zeros(nElements), units=units, desc='scalar output')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        # assign elements of the input array to outputs
+        for i in range(0, self.nArrays):
+            exec("unknowns['output%i'] = params['Array'][%i][:]" % (i, i))
+
+
+    #TODO need to do linearize still
+    def linearize(self, params, unknowns, resids):
+
+        # initialize gradient calculation array
+        doutput_dArray = np.eye(self.nElements)
+
+        # intialize Jacobian dict
+        J = {}
+
+        # calculate the gradients and populate the Jacobian dict
+        for i in range(0, self.nElements):
+            J['output%i' % i, 'Array'] = np.reshape(doutput_dArray[i, :], (1, self.nElements))
+
+        return J
+
+
+class organizeWindSpeeds(Component):
+    """ split wind speeds to connect to direction groups """
+
+    def __init__(self, nTurbines, nDirections, units=None):
+
+        super(organizeWindSpeeds, self).__init__()
+
+        # set finite difference options (fd used for testing only)
+        self.fd_options['form'] = 'central'
+        self.fd_options['step_size'] = 1.0e-5
+        self.fd_options['step_type'] = 'relative'
+
+        # define input
+        if units is None:
+            self.add_param('windSpeeds', np.zeros((nTurbines, nDirections)), desc='ndArray of scalars')
+        else:
+            self.add_param('windSpeeds', np.zeros((nTurbines, nDirections)), units=units, desc='ndArray of scalars')
+
+        # define outputs
+        if units is None:
+            for i in range(0, nDirections):
+                self.add_output('output%i' % i, np.zeros(nTurbines), desc='scalar output')
+        else:
+            for i in range(0, nDirections):
+                self.add_output('output%i' % i, np.zeros(nTurbines), units=units, desc='scalar output')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        nDirections = np.shape(params['windSpeeds'])[1]
+        nTurbines = np.shape(params['windSpeeds'])[0]
+
+        # assign elements of the input array to outputs
+        for direction_id in range(nDirections):
+            for turbine_id in range(nTurbines):
+                unknowns['output%i'%direction_id][turbine_id] = params['windSpeeds'][turbine_id][direction_id]
+
+    #TODO need to do linearize
+    def linearize(self, params, unknowns, resids):
+
+        # initialize gradient calculation array
+        doutput_dArray = np.eye(self.nElements)
+
+        # intialize Jacobian dict
+        J = {}
+
+        # calculate the gradients and populate the Jacobian dict
+        for i in range(0, self.nElements):
+            J['output%i' % i, 'Array'] = np.reshape(doutput_dArray[i, :], (1, self.nElements))
+
+        return J
+
+
+
 
 
 # ---- if you know wind speed to power and thrust, you can use these tools ----------------
@@ -1135,6 +1243,104 @@ def calculate_distance(points, vertices, unit_normals, return_bool=False):
         return face_distance, inside
 
 
+class getUeffintegrate(Component):
+    """
+    Integrate across the turbine to get effective wind speed
+    """
+    def __init__(self, nDirections, nTurbines):
+
+        super(getUeffintegrate, self).__init__()
+
+        self.fd_options['form'] = 'forward'
+        self.fd_options['step_size'] = 1.0e-6
+        self.fd_options['step_type'] = 'relative'
+        self.fd_options['force_fd'] = True
+
+        self.nDirections = nDirections
+        self.nTurbines = nTurbines
+
+        # inputs
+        self.add_param('nIntegrationPoints', 5, desc='number of integration points')
+        self.add_param('rotorDiameter', np.zeros(nTurbines), units='m', desc='rotor diameter of each turbine')
+        self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='the hub height of each turbine')
+        self.add_param('wind', 'PowerWind', desc='Wind shear calculation method')
+        self.add_param('Uref', np.zeros(nDirections), units='m/s', desc='refenence wind speed for each direction')
+        self.add_param('zref', 90, units='m', desc='height at which Uref was measured')
+        self.add_param('z_roughness', 0.01, units='m', desc='ground roughness height')
+        self.add_param('z0', 0, units='m', desc='height of ground')
+        self.add_param('shearExp', 0.2, desc='PowerWind exponent')
+
+        # outputs
+        self.add_output('windSpeeds', np.zeros((nTurbines, nDirections)), units='m/s', desc='Free stream wind speed on each turbine from each direction')
+
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        nTurbines = self.nTurbines
+        nDirections = self.nDirections
+
+        D = params['rotorDiameter']
+        r = D/2.
+
+        nPoints = params['nIntegrationPoints']
+        wind = params['wind']
+        Uref = params['Uref']
+        zref = params['zref']
+        z_roughness = params['z_roughness']
+        z0 = params['z0']
+        shearExp = params['shearExp']
+        turbineZ = params['turbineZ']
+
+
+        for turbine_id in range(nTurbines):
+            turbZ = turbineZ[turbine_id]
+            Ueff = np.zeros(nDirections)
+            rTurb = r[turbine_id]
+            for direction_id in range(nDirections):
+                z = turbZ-rTurb
+                Usum = 0.
+                Asum = 0.
+                for point_id in range(nPoints):
+                    dz = D[turbine_id]/nPoints
+                    if point_id == 0 or point_id == nPoints-1:
+                        dz = dz/2.
+
+                    if z < turbZ:
+                        a1 = 2*np.sqrt(rTurb**2-(turbZ-z)**2)
+                    elif z == turbZ:
+                        a1 = 2*rTurb
+                    else:
+                        a1 = 2*np.sqrt(rTurb**2-(z-turbZ)**2)
+
+                    if z+dz < turbZ:
+                        a2 = 2*np.sqrt(rTurb**2-(turbZ-(z+dz))**2)
+                    elif z+dz == turbZ:
+                        a2 = 2*rTurb
+                    elif z+dz > turbZ:
+                        a2 = 2*np.sqrt(rTurb**2-(z+dz-turbZ)**2)
+
+                    if wind == 'PowerWind':
+                        Ub = PowWind(Uref[direction_id], z, zref, z0, shearExp)
+                        Ut = PowWind(Uref[direction_id], z+dz, zref, z0, shearExp)
+                    if wind == 'LogWind':
+                        Ub = LnWind(Uref[direction_id], z, z0, z_roughness, zref)
+                        Ut = LnWind(Uref[direction_id], z, z0, z_roughness, zref)
+
+                    Usum += dz/2.*(a1*Ub+a2*Ut)
+                    Asum += dz/2.*(a1+a2)
+                    z += dz
+                Ueff[direction_id] = Usum/Asum
+
+            unknowns['windSpeeds'][turbine_id][:] = Ueff
+
+
+def PowWind(uref, z, zref, z0, a):
+    return uref*((z-z0)/(zref-z0))**a
+
+def LnWind(uref, z, z0, z_roughness, zref):
+    return uref*log((z-z0)/z_roughness)/log((zref-z0)/z_roughness)
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
@@ -1252,4 +1458,3 @@ if __name__ == "__main__":
     # # print(root.p.unknowns['output0'])
     # # print(root.p.unknowns['output1'])
     # top.check_partial_derivatives()
-
