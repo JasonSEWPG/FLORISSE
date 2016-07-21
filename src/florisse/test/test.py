@@ -185,7 +185,7 @@ class TestZEP(unittest.TestCase):
         prob['zref'] = wind_zref
         prob['z0'] = wind_z0       # turns off cosine spread (just needs to be very large)
 
-        prob.run()
+        prob.run_once()
 
         self.J = prob.check_total_derivatives(out_stream=None)
         print "###################################################3"
@@ -500,7 +500,7 @@ class TestMass(unittest.TestCase):
         prob['H1_H2'] = H1_H2
 
 
-        prob.run()
+        prob.run_once()
 
         print 'Cost: ', prob['cost']
         self.J = prob.check_total_derivatives(out_stream=None)
