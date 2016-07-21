@@ -512,20 +512,25 @@ class Floris(Component):
 
         # define input array to direct differentiation
         wtVelocityb = np.eye(nDirs, nTurbines)
+        nTurbines = self.nTurbines
 
         # call to fortran code to obtain output values
-        turbineXwb, turbineYwb, turbineZb, yawDegb, rotorDiameterb, Ctb, axialInductionb = \
+        turbineXwb, turbineYwb, turbineZb, yawDegb, rotorDiameterb, Ctb, axialInductionb, Vinfb = \
             _floris.floris_bv(turbineXw, turbineYw, turbineZ, yawDeg, rotorDiameter, Vinf,
                                              Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
                                              MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
                                              Region2CT, keCorrArray, useWakeAngle,
-                                             adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU,
-                                             wtVelocityb)
+                                             adjustInitialWakeDiamToYaw, axialIndProvided,
+                                              useaUbU, wtVelocityb)
 
         # initialize Jacobian dict
         J = {}
 
         # collect values of the Jacobian
+        print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+        print 'Z: ', turbineZb
+        print 'turbineZ: ', turbineZ
+
         J['wtVelocity%i' % direction_id, 'turbineXw'] = turbineXwb
         J['wtVelocity%i' % direction_id, 'turbineYw'] = turbineYwb
         J['wtVelocity%i' % direction_id, 'turbineZ'] = turbineZb
@@ -533,6 +538,7 @@ class Floris(Component):
         J['wtVelocity%i' % direction_id, 'rotorDiameter'] = rotorDiameterb
         J['wtVelocity%i' % direction_id, 'Ct'] = Ctb
         J['wtVelocity%i' % direction_id, 'axialInduction'] = axialInductionb
+        J['wtVelocity%i' % direction_id, 'wind_speed'] = Vinfb
 
         return J
 
@@ -744,7 +750,6 @@ class AEPGroup(Group):
 
         # connect components
         self.connect('windDirections', 'windDirectionsDeMUX.Array')
-        #self.connect('windSpeeds', 'organizeWindSpeeds.windSpeeds')
         for direction_id in np.arange(0, nDirections):
             self.add('y%i' % direction_id, IndepVarComp('yaw%i' % direction_id, np.zeros(nTurbines), units='deg'), promotes=['*'])
             self.connect('windDirectionsDeMUX.output%i' % direction_id, 'direction_group%i.wind_direction' % direction_id)
