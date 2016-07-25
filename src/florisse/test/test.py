@@ -70,6 +70,7 @@ class TestZEP(unittest.TestCase):
     def setUp(self):
         nRows = 2
         nTurbs = nRows**2
+        nTurbs = 5
         rotorDiameter = np.zeros(nTurbs)
         axialInduction = np.zeros(nTurbs)
         Ct = np.zeros(nTurbs)
@@ -101,8 +102,8 @@ class TestZEP(unittest.TestCase):
         #turbineX = np.array([  849.26857068,  1263.9343377,    632.71670699,  1099.70742498])
         #turbineY = np.array([  632.18556535,   632.14896811,  1263.81443236,  1263.85102664])
 
-        turbineX = np.array([0,0,0,0,0])
-        turbineY = np.array([0,100,200,300,400])
+        turbineX = np.array([1,2,3,4,5])
+        turbineY = np.array([1,2,3,4,5])
         turbineZ = np.array([100,110,120,130,140])
         nTurbs = len(turbineX)
         """set up 3D aspects of wind farm"""
@@ -118,7 +119,7 @@ class TestZEP(unittest.TestCase):
         """Define wind flow"""
         air_density = 1.1716    # kg/m^3
 
-        windSpeeds = np.array([4.,5.,6.,3.])
+        windSpeeds = np.array([91., 45.])
         nDirections = len(windSpeeds)
         windDirections = np.linspace(0,360-360/nDirections, nDirections)
         windFrequencies = np.ones(len(windSpeeds))/len(windSpeeds)
@@ -133,13 +134,13 @@ class TestZEP(unittest.TestCase):
         root = prob.root = Group()
 
         root.fd_options['form'] = 'central'
-        root.fd_options['step_size'] = 1.0e-5
+        root.fd_options['step_size'] = 1.0e-6
         root.fd_options['step_type'] = 'relative'
 
-        # root.add('turbineH1', IndepVarComp('turbineH1', turbineH1), promotes=['*'])
-        # root.add('turbineH2', IndepVarComp('turbineH2', turbineH2), promotes=['*'])
-        # root.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
-        root.add('turbineZ', IndepVarComp('turbineZ', turbineZ), promotes=['*'])
+        root.add('turbineH1', IndepVarComp('turbineH1', turbineH1), promotes=['*'])
+        root.add('turbineH2', IndepVarComp('turbineH2', turbineH2), promotes=['*'])
+        root.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
+        # root.add('turbineZ', IndepVarComp('turbineZ', turbineZ), promotes=['*'])
         # root.add('Uref', IndepVarComp('Uref', windSpeeds), promotes=['*'])
         root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
                     use_rotor_components=False, datasize=0, differentiable=True,
@@ -152,9 +153,9 @@ class TestZEP(unittest.TestCase):
         prob.driver.opt_settings['Major optimality tolerance'] = 1E-3
 
         prob.driver.add_objective('maxAEP', scaler=1E-8)
-        prob.driver.add_desvar('turbineZ', lower=np.ones(nTurbs)*75., upper=None)
-        # prob.driver.add_desvar('turbineH1', lower=10., upper=None)
-        # prob.driver.add_desvar('turbineH2', lower=10., upper=None)
+        # prob.driver.add_desvar('turbineZ', lower=np.ones(nTurbs)*75., upper=None)
+        prob.driver.add_desvar('turbineH1', lower=10., upper=None)
+        prob.driver.add_desvar('turbineH2', lower=10., upper=None)
         prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX))
         prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY))
         # prob.driver.add_desvar('Uref', lower=np.zeros(nDirections), upper=None)
@@ -164,9 +165,9 @@ class TestZEP(unittest.TestCase):
         #prob['turbineH1'] = turbineH1
         #prob['turbineH2'] = turbineH2
 
-        # prob['H1_H2'] = H1_H2
+        prob['H1_H2'] = H1_H2
         # prob['turbineZ'] = turbineZ
-        prob['turbineX'] = turbineX
+        # prob['turbineX'] = turbineX
         prob['turbineY'] = turbineY
         prob['yaw0'] = yaw
 
@@ -195,11 +196,12 @@ class TestZEP(unittest.TestCase):
         print 'AEP: ', prob['maxAEP']
 
     def test_XY(self):
-        np.testing.assert_allclose(self.J[('maxAEP', 'turbineX')]['J_fwd'], self.J[('maxAEP', 'turbineX')]['J_fd'], 1e-6, 1e-6)
-        np.testing.assert_allclose(self.J[('maxAEP', 'turbineY')]['J_fwd'], self.J[('maxAEP', 'turbineY')]['J_fd'], 1e-6, 1e-6)
+        np.testing.assert_allclose(self.J[('maxAEP', 'turbineX')]['J_fwd'], self.J[('maxAEP', 'turbineX')]['J_fd'], 1e-3, 1e-6)
+        # np.testing.assert_allclose(self.J[('maxAEP', 'turbineY')]['J_fwd'], self.J[('maxAEP', 'turbineY')]['J_fd'], 1e-6, 1e-6)
 
-    # def testZ(self):
-    #     np.testing.assert_allclose(self.J[('maxAEP', 'Uref')]['J_fwd'], self.J[('maxAEP', 'Uref')]['J_fd'], 1e-6, 1e-6)
+    def testZ(self):
+        np.testing.assert_allclose(self.J[('maxAEP', 'turbineH1')]['J_fwd'], self.J[('maxAEP', 'turbineH1')]['J_fd'], 1e-6, 1e-6)
+        np.testing.assert_allclose(self.J[('maxAEP', 'turbineH2')]['J_fwd'], self.J[('maxAEP', 'turbineH2')]['J_fd'], 1e-6, 1e-6)
 
     # def testZ(self):
     #     np.testing.assert_allclose(self.J[('AEP', 'turbineZ')]['J_fwd'], self.J[('AEP', 'turbineZ')]['J_fd'], 1e-6, 1e-6)
@@ -211,17 +213,105 @@ class TestZEP(unittest.TestCase):
     #     np.testing.assert_allclose(self.J[('AEP', 'turbineH1')]['J_fwd'], self.J[('AEP', 'turbineH1')]['J_fd'], 1e-6, 1e-6)
     #
 
-class TestMass(unittest.TestCase):
+class TestCost(unittest.TestCase):
 
 
     def setUp(self):
-        nTurbs = 9
+        nTurbines = 9
+        mass1 = 870000.
+        mass2 = 150000.
+
+        nTurbs = 5
+        rotorDiameter = np.zeros(nTurbs)
+        axialInduction = np.zeros(nTurbs)
+        Ct = np.zeros(nTurbs)
+        Cp = np.zeros(nTurbs)
+        generatorEfficiency = np.zeros(nTurbs)
+        yaw = np.zeros(nTurbs)
+        rotor_diameter = 126.4
+
+        # define initial values
+        for turbI in range(0, nTurbs):
+            rotorDiameter[turbI] = rotor_diameter            # m
+            axialInduction[turbI] = 1.0/3.0
+            Ct[turbI] = 4.0*axialInduction[turbI]*(1.0-axialInduction[turbI])
+            # Cp[turbI] = 0.7737/0.944 * 4.0 * 1.0/3.0 * np.power((1 - 1.0/3.0), 2)
+            Cp[turbI] = 0.7737 * 4.0 * 1.0/3.0 * np.power((1 - 1.0/3.0), 2)
+            generatorEfficiency[turbI] = 1.0#0.944
+            yaw[turbI] = 0.     # deg.
+
+
+        H1_H2 = np.array([])
+        for i in range(nTurbines/2):
+            H1_H2 = np.append(H1_H2, 0)
+            H1_H2 = np.append(H1_H2, 1)
+        if len(H1_H2) < nTurbines:
+            H1_H2 = np.append(H1_H2, 0)
+
+        turbineH1 = 75.
+        turbineH2 = 125.
+
+        windSpeeds = np.array([91., 45.])
+        nDirections = len(windSpeeds)
+        windDirections = np.linspace(0,360-360/nDirections, nDirections)
+        windFrequencies = np.ones(len(windSpeeds))/len(windSpeeds)
+
+        prob = Problem()
+        root = prob.root = Group()
+
+        root.deriv_options['check_form'] = 'central'
+        root.deriv_options['check_step_size'] = 1E-6
+
+        root.deriv_options['form'] = 'central'
+        root.deriv_options['step_size'] = 1E-6
+
+        root.add('mass1', IndepVarComp('mass1', mass1), promotes=['*'])
+        root.add('mass2', IndepVarComp('mass2', mass2), promotes=['*'])
+        root.add('turbineH1', IndepVarComp('turbineH1', turbineH1), promotes=['*'])
+        root.add('turbineH2', IndepVarComp('turbineH2', turbineH2), promotes=['*'])
+        root.add('getTurbineZ', getTurbineZ(nTurbines), promotes=['*'])
+        root.add('AEPGroup', AEPGroup(nTurbines, nDirections=nDirections,
+            use_rotor_components=False, datasize=0, differentiable=True,
+            optimizingLayout=False, nSamples=0), promotes=['*'])
+        prob.driver = pyOptSparseDriver()
+        root.add('COE', COEGroup(nTurbines), promotes=['*'])
+
+
+        prob.driver.options['optimizer'] = 'SNOPT'
+        prob.driver.opt_settings['Major iterations limit'] = 1000
+        prob.driver.opt_settings['Major optimality tolerance'] = 1E-6
+
+        prob.driver.add_objective('cost', scaler=1E2)
+        prob.driver.add_desvar('mass1', lower=1000., upper=None)
+        prob.driver.add_desvar('mass2', lower=1000., upper=None)
+
+        prob.setup()
+
+        prob['H1_H2'] = H1_H2
+
+
+        prob.run()
+
+        self.J = prob.check_total_derivatives(out_stream=None)
+        print self.J
+
+    def test_mass(self):
+        np.testing.assert_allclose(self.J[('cost', 'mass1')]['J_fwd'], self.J[('cost', 'mass1')]['J_fd'], 1e-3, 1e-3)
+        np.testing.assert_allclose(self.J[('cost', 'mass2')]['J_fwd'], self.J[('cost', 'mass2')]['J_fd'], 1e-3, 1e-3)
+
+
+class TestTowerMass(unittest.TestCase):
+
+
+    def setUp(self):
         # --- geometry ----
         d_param = np.array([6.0, 4.935, 3.87]) # not going to modify this right now
         t_param = np.array([0.027*1.3, 0.023*1.3, 0.019*1.3]) # not going to modify this right now
         n = 15
         L_reinforced = 30.0*np.ones(n)  # [m] buckling length
         Toweryaw = 0.0
+        nTurbs = 9
+
 
         # --- material props ---
         E = 210.e9*np.ones(n)
@@ -229,7 +319,7 @@ class TestMass(unittest.TestCase):
         rho = 8500.0*np.ones(n)
         sigma_y = 450.0e6*np.ones(n)
 
-        # --- spring reaction data.  Use float('inf') for rigid constraints. ---
+        # # --- spring reaction data.  Use float('inf') for rigid constraints. ---
         kidx = np.array([0], dtype=int)  # applied at base
         kx = np.array([float('inf')])
         ky = np.array([float('inf')])
@@ -255,7 +345,7 @@ class TestMass(unittest.TestCase):
         addGravityLoadForExtraMass = True
         # -----------
 
-        # --- wind ---
+        # # --- wind ---
         wind_zref = 90.0
         wind_z0 = 0.0
         shearExp = 0.2
@@ -302,11 +392,6 @@ class TestMass(unittest.TestCase):
         # ---------------
 
 
-        # --- constraints ---
-        min_d_to_t = 120.0
-        min_taper = 0.4
-        # ---------------
-
         H1_H2 = np.array([])
         for i in range(nTurbs/2):
             H1_H2 = np.append(H1_H2, 0)
@@ -314,25 +399,33 @@ class TestMass(unittest.TestCase):
         if len(H1_H2) < nTurbs:
             H1_H2 = np.append(H1_H2, 0)
 
+        H1_H2 = np.zeros(nTurbs)
+
         nPoints = len(d_param)
         nFull = n
         wind = 'PowerWind'
 
-        turbineH1 = 100.
-        turbineH2 = 120.
+        turbineH1 = 187.
+        turbineH2 = 101.
         rotor_diameter = 126.4
 
         prob = Problem()
         root = prob.root = Group()
 
+        turbineZ = 200.
+        root.deriv_options['check_form'] = 'central'
+        root.deriv_options['check_step_size'] = 1E-6
 
+        root.deriv_options['form'] = 'central'
+        root.deriv_options['step_size'] = 1E-6
         root.add('turbineH1', IndepVarComp('turbineH1', turbineH1), promotes=['*'])
         root.add('turbineH2', IndepVarComp('turbineH2', turbineH2), promotes=['*'])
         root.add('d_paramH1', IndepVarComp('d_paramH1', d_param), promotes=['*'])
         root.add('t_paramH1', IndepVarComp('t_paramH1', t_param), promotes=['*'])
         root.add('d_paramH2', IndepVarComp('d_paramH2', d_param), promotes=['*'])
         root.add('t_paramH2', IndepVarComp('t_paramH2', t_param), promotes=['*'])
-        root.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
+        # root.add('turbineZ', IndepVarComp('turbineZ', turbineZ), promotes=['*'])
+        # root.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
         root.add('get_z_paramH1', get_z(nPoints))
         root.add('get_z_paramH2', get_z(nPoints))
         root.add('get_z_fullH1', get_z(n))
@@ -351,7 +444,7 @@ class TestMass(unittest.TestCase):
                             'mrhox','mrhoy','mrhoz','addGravityLoadForExtraMass','g',
                             'gamma_f','gamma_m','gamma_n','gamma_b','life','m_SN',
                             'gc.min_d_to_t','gc.min_taper','M_DEL','gamma_fatigue'])
-        root.add('farmCost', farmCost(nTurbs), promotes=['*'])
+        # root.add('farmCost', farmCost(nTurbs), promotes=['*'])
 
         root.connect('turbineH1', 'get_z_paramH1.turbineZ')
         root.connect('turbineH2', 'get_z_paramH2.turbineZ')
@@ -365,8 +458,8 @@ class TestMass(unittest.TestCase):
         root.connect('turbineH2', 'get_zDELH2.turbineZ')
         root.connect('get_zDELH1.z_DEL', 'TowerH1.z_DEL')
         root.connect('get_zDELH2.z_DEL', 'TowerH2.z_DEL')
-        root.connect('TowerH1.tower1.mass', 'mass1')
-        root.connect('TowerH2.tower1.mass', 'mass2')
+        # root.connect('TowerH1.tower1.mass', 'mass1')
+        # root.connect('TowerH2.tower1.mass', 'mass2')
         root.connect('d_paramH1', 'TowerH1.d_param')
         root.connect('d_paramH2', 'TowerH2.d_param')
         root.connect('t_paramH1', 'TowerH1.t_param')
@@ -378,15 +471,17 @@ class TestMass(unittest.TestCase):
         prob.driver.opt_settings['Major optimality tolerance'] = 1E-2
 
         # --- Objective ---
-        prob.driver.add_objective('cost', scaler=1E-6)
+        prob.driver.add_objective('TowerH1.tower1.mass', scaler=1E-6)
 
         # --- Design Variables ---
         prob.driver.add_desvar('turbineH1', lower=rotor_diameter/2.+10, upper=None, scaler=1.0)
         prob.driver.add_desvar('turbineH2', lower=rotor_diameter/2.+10, upper=None, scaler=1.0)
-        # prob.driver.add_desvar('d_paramH1', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.array([6.3, 6.3, 6.3]), scaler=1.0)
-        # prob.driver.add_desvar('t_paramH1', lower=np.ones(nPoints)*.001, upper=None, scaler=1.0)
-        # prob.driver.add_desvar('d_paramH2', lower=np.array([1.0, 1.0, d_param[nPoints-1]-0.0001]), upper=np.array([6.3, 6.3, d_param[nPoints-1]+0.0001]), scaler=1.0)
-        # prob.driver.add_desvar('t_paramH2', lower=np.ones(nPoints)*.001, upper=None, scaler=1.0)
+        prob.driver.add_desvar('d_paramH1', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.array([6.3, 6.3, 6.3]), scaler=1.0)
+        prob.driver.add_desvar('t_paramH1', lower=np.ones(nPoints)*.001, upper=None, scaler=1.0)
+        prob.driver.add_desvar('d_paramH2', lower=np.array([1.0, 1.0, d_param[nPoints-1]-0.0001]), upper=np.array([6.3, 6.3, d_param[nPoints-1]+0.0001]), scaler=1.0)
+        prob.driver.add_desvar('t_paramH2', lower=np.ones(nPoints)*.001, upper=None, scaler=1.0)
+        # prob.driver.add_desvar('turbineZ', lower=0., upper=None, scaler=1.0)
+
 
         prob.setup()
 
@@ -395,10 +490,10 @@ class TestMass(unittest.TestCase):
         prob['TowerH2.yaw'] = Toweryaw
 
         # --- material props ---
-        prob['d_paramH1'] = d_param
-        prob['d_paramH2'] = d_param
-        prob['t_paramH1'] = t_param
-        prob['t_paramH2'] = t_param
+        # prob['d_paramH1'] = d_param
+        # prob['d_paramH2'] = d_param
+        # prob['t_paramH1'] = t_param
+        # prob['t_paramH2'] = t_param
         prob['E'] = E
         prob['G'] = G
         prob['TowerH1.tower1.rho'] = rho
@@ -484,30 +579,46 @@ class TestMass(unittest.TestCase):
         # ---------------
 
         # --- fatigue ---
-        #prob['TowerH1.z_DEL'] = z_DEL*turbineH1/87.6
-        #prob['TowerH2.z_DEL'] = z_DEL*turbineH2/87.6
         prob['M_DEL'] = M_DEL
         prob['gamma_fatigue'] = gamma_fatigue
         prob['life'] = life
         prob['m_SN'] = m_SN
         # ---------------
 
-        # --- constraints ---
-        prob['gc.min_d_to_t'] = min_d_to_t
-        prob['gc.min_taper'] = min_taper
+        # # --- constraints ---
+        # prob['gc.min_d_to_t'] = min_d_to_t
+        # prob['gc.min_taper'] = min_taper
         # ---------------
 
-        prob['H1_H2'] = H1_H2
+        # prob['H1_H2'] = H1_H2
 
 
         prob.run_once()
 
-        print 'Cost: ', prob['cost']
+        print 'Mass H1: ', prob['TowerH1.tower1.mass']
+        print 'Mass H2: ', prob['TowerH2.tower1.mass']
+        print 'd: ', prob['d_paramH1']
+        print 't: ', prob['t_paramH1']
         self.J = prob.check_total_derivatives(out_stream=None)
-        print self.J
+        print 'H1 fwd: ', self.J[('TowerH1.tower1.mass', 'turbineH1')]['J_fwd']
+        print 'H1 fd: ', self.J[('TowerH1.tower1.mass', 'turbineH1')]['J_fd']
+        print 'H2 fwd: ', self.J[('TowerH1.tower1.mass', 'turbineH2')]['J_fwd']
+        print 'H2 fd: ', self.J[('TowerH1.tower1.mass', 'turbineH2')]['J_fd']
 
-    def test_XY(self):
-        np.testing.assert_allclose(self.J[('cost', 'turbineH1')]['J_fwd'], self.J[('cost', 'turbineH1')]['J_fd'], 1e-6, 1e-6)
+    def test_mass_H1(self):
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 'turbineH1')]['J_fwd'], self.J[('TowerH1.tower1.mass', 'turbineH1')]['J_fd'], 1e-6, 1e-6)
+
+    def test_mass_H2(self):
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 'turbineH2')]['J_fwd'], self.J[('TowerH1.tower1.mass', 'turbineH2')]['J_fd'], 1e-6, 1e-6)
+
+    def test_d_t(self):
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 'd_paramH1')]['J_fwd'], self.J[('TowerH1.tower1.mass', 'd_paramH1')]['J_fd'], 1e-6, 1e-6)
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 't_paramH1')]['J_fwd'], self.J[('TowerH1.tower1.mass', 't_paramH1')]['J_fd'], 1e-6, 1e-6)
+
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 't_paramH2')]['J_fwd'], self.J[('TowerH1.tower1.mass', 't_paramH2')]['J_fd'], 1e-6, 1e-6)
+        np.testing.assert_allclose(self.J[('TowerH1.tower1.mass', 't_paramH2')]['J_fwd'], self.J[('TowerH1.tower1.mass', 't_paramH2')]['J_fd'], 1e-6, 1e-6)
+
+
 
 if __name__ == '__main__':
     unittest.main()

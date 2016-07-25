@@ -515,7 +515,7 @@ class Floris(Component):
         nTurbines = self.nTurbines
 
         # call to fortran code to obtain output values
-        turbineXwb, turbineYwb, turbineZb, yawDegb, rotorDiameterb, Ctb, axialInductionb, Vinfb = \
+        turbineXwb, turbineYwb, turbineZb, yawDegb, rotorDiameterb, Vinfb, Ctb, axialInductionb = \
             _floris.floris_bv(turbineXw, turbineYw, turbineZ, yawDeg, rotorDiameter, Vinf,
                                              Ct, axialInduction, ke, kd, me, initialWakeDisplacement, bd,
                                              MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,

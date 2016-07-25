@@ -88,6 +88,9 @@ class farmCost(Component):
 
         nMass1 = nTurbines-np.sum(H1_H2)
         nMass2 = np.sum(H1_H2)
+        # print "H2_H2: ", H1_H2
+        # print "nMass1: ", nMass1
+        # print "nMass2: ", nMass2
 
         dCost_dMass1 = turbine_multiplier*tower_mass_cost_coefficient*nMass1
         dCost_dMass2 = turbine_multiplier*tower_mass_cost_coefficient*nMass2

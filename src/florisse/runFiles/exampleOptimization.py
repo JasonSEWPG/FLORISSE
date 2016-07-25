@@ -16,7 +16,7 @@ from setupOptimization import *
 if __name__=="__main__":
 
     rotor_diameter = 126.4
-    rotor_diameter = 60.0
+    # rotor_diameter = 60.0
 
     """set up the wind farm"""
     farm = "Grid"
@@ -150,8 +150,8 @@ if __name__=="__main__":
 
     """Define tower structural properties"""
     # --- geometry ----
-    d_param = np.array([6.0, 4.935, 3.87]) # not going to modify this right now
-    t_param = np.array([0.027*1.3, 0.023*1.3, 0.019*1.3]) # not going to modify this right now
+    d_param = np.array([6.0, 4.935, 3.87])
+    t_param = np.array([0.027*1.3, 0.023*1.3, 0.019*1.3])
     n = 15
 
     L_reinforced = 30.0*np.ones(n)  # [m] buckling length
@@ -241,10 +241,6 @@ if __name__=="__main__":
     min_taper = 0.4
     # ---------------
 
-    # # V_max = 80.0  # tip speed
-    # # D = 126.0
-    # # .freq1p = V_max / (D/2) / (2*pi)  # convert to Hz
-
     nPoints = len(d_param)
     nFull = n
     wind = 'PowerWind'
@@ -267,8 +263,6 @@ if __name__=="__main__":
     root.add('get_z_paramH2', get_z(nPoints))
     root.add('get_z_fullH1', get_z(n))
     root.add('get_z_fullH2', get_z(n))
-    root.add('get_zDELH1', get_z_DEL())
-    root.add('get_zDELH2', get_z_DEL())
     root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
                 use_rotor_components=False, datasize=0, differentiable=True,
                 optimizingLayout=False, nSamples=0), promotes=['*'])
@@ -309,10 +303,6 @@ if __name__=="__main__":
     root.connect('get_z_fullH1.z_param', 'TowerH1.z_full')
     root.connect('get_z_paramH2.z_param', 'TowerH2.z_param')
     root.connect('get_z_fullH2.z_param', 'TowerH2.z_full')
-    root.connect('turbineH1', 'get_zDELH1.turbineZ')
-    root.connect('turbineH2', 'get_zDELH2.turbineZ')
-    root.connect('get_zDELH1.z_DEL', 'TowerH1.z_DEL')
-    root.connect('get_zDELH2.z_DEL', 'TowerH2.z_DEL')
     root.connect('TowerH1.tower1.mass', 'mass1')
     root.connect('TowerH2.tower1.mass', 'mass2')
     root.connect('d_paramH1', 'TowerH1.d_param')
@@ -359,7 +349,6 @@ if __name__=="__main__":
     prob.driver.add_constraint('TowerH2.tower2.global_buckling', upper=1.0)
     prob.driver.add_constraint('TowerH2.tower1.shell_buckling', upper=1.0)
     prob.driver.add_constraint('TowerH2.tower2.shell_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower1.damage', upper=1.0)
     prob.driver.add_constraint('TowerH2.gc.weldability', upper=0.0)
     prob.driver.add_constraint('TowerH2.gc.manufacturability', upper=0.0)
     freq1p = 0.2  # 1P freq in Hz
@@ -500,7 +489,7 @@ if __name__=="__main__":
     # --- fatigue ---
     # prob['TowerH1.z_DEL'] = z_DEL*turbineH1/87.6
     # prob['TowerH2.z_DEL'] = z_DEL*turbineH2/87.6
-    prob['M_DEL'] = M_DEL
+    # prob['M_DEL'] = M_DEL
     prob['gamma_fatigue'] = gamma_fatigue
     prob['life'] = life
     prob['m_SN'] = m_SN
