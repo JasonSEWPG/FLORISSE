@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from openmdao.api import Problem, Group, pyOptSparseDriver
+from openmdao.api import Problem, pyOptSparseDriver
 from florisse.OptimizationGroups import OptAEP
 from florisse import config
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     prob = Problem(impl=impl)
 
-    size = 8 # number of processors (and number of wind directions to run)
+    size = 4 # number of processors (and number of wind directions to run)
 
     #########################################################################
     # define turbine size
@@ -47,9 +47,8 @@ if __name__ == "__main__":
     # turbineY = np.array([1024.7, 1335.3, 1387.2, 1697.8, 2060.3, 1749.7])   # m
 
     # Scaling grid case
-    # nRows = int(sys.argv[1])     # number of rows and columns in grid
-    nRows = 5
-    spacing = 3     # turbine grid spacing in diameters
+    nRows = int(sys.argv[1])     # number of rows and columns in grid
+    spacing = 5     # turbine grid spacing in diameters
 
     # Set up position arrays
     points = np.linspace(start=spacing*rotor_diameter, stop=nRows*spacing*rotor_diameter, num=nRows)
@@ -59,7 +58,6 @@ if __name__ == "__main__":
 
     # initialize input variable arrays
     nTurbs = turbineX.size
-    turbineZ = np.array([100,200,300,500])
     rotorDiameter = np.zeros(nTurbs)
     axialInduction = np.zeros(nTurbs)
     Ct = np.zeros(nTurbs)
@@ -85,7 +83,6 @@ if __name__ == "__main__":
     windFrequencies = np.ones(size)/size
 
     # initialize problem
-
     prob = Problem(impl=impl, root=OptAEP(nTurbines=nTurbs, nDirections=windDirections.size,
                                           minSpacing=minSpacing, differentiable=True, use_rotor_components=False))
 
@@ -101,10 +98,8 @@ if __name__ == "__main__":
     prob.driver.opt_settings['Major iterations limit'] = 1000
 
     # select design variables
-    prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX), scaler=1E-2)
-    prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY), scaler=1E-2)
-    prob.driver.add_desvar('turbineZ', lower=np.ones(nTurbs)*100., upper=np.ones(nTurbs)*200., scaler=1E-2)
-
+    prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX), scaler=1)
+    prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY), scaler=1)
     for direction_id in range(0, windDirections.size):
         prob.driver.add_desvar('yaw%i' % direction_id, lower=-30.0, upper=30.0, scaler=1)
 
@@ -122,7 +117,6 @@ if __name__ == "__main__":
     # assign initial values to design variables
     prob['turbineX'] = turbineX
     prob['turbineY'] = turbineY
-    prob['turbineZ'] = turbineZ
     for direction_id in range(0, windDirections.size):
         prob['yaw%i' % direction_id] = yaw
 
@@ -161,7 +155,6 @@ if __name__ == "__main__":
 
     mpi_print(prob,  'turbine X positions in wind frame (m): %s' % prob['turbineX'])
     mpi_print(prob,  'turbine Y positions in wind frame (m): %s' % prob['turbineY'])
-    mpi_print(prob,  'turbine Z positions in wind frame (m): %s' % prob['turbineZ'])
     mpi_print(prob,  'wind farm power in each direction (kW): %s' % prob['dirPowers'])
     mpi_print(prob,  'AEP (kWh): %s' % prob['AEP'])
 
