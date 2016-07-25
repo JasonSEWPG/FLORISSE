@@ -16,10 +16,10 @@ from setupOptimization import *
 if __name__=="__main__":
 
     rotor_diameter = 126.4
-    # rotor_diameter = 60.0
+    # rotor_diameter = 80.0
 
     """set up the wind farm"""
-    farm = "Grid"
+    farm = "Amalia"
 
     """Amalia Wind Farm"""
     if farm == "Amalia":
@@ -38,7 +38,7 @@ if __name__=="__main__":
 
     """Grid Wind Farm"""
     if farm == "Grid":
-        nRows = 5
+        nRows = 7
         nTurbs = nRows**2
         spacing = 5   # turbine grid spacing in diameters
         points = np.linspace(start=spacing*rotor_diameter, stop=nRows*spacing*rotor_diameter, num=nRows)
@@ -80,7 +80,7 @@ if __name__=="__main__":
 
     """set up 3D aspects of wind farm"""
     turbineH1 = 75.
-    turbineH2 = 150.
+    turbineH2 = 125.
     H1_H2 = np.array([])
     for i in range(nTurbs/2):
         H1_H2 = np.append(H1_H2, 0)
@@ -91,10 +91,10 @@ if __name__=="__main__":
     """Define wind flow"""
     air_density = 1.1716    # kg/m^3
 
-    wind = "Amalia"
+    windData = "Amalia"
 
     """Amalia Wind Arrays"""
-    if wind == "Amalia":
+    if windData == "Amalia":
         windSpeeds = np.array([6.53163342, 6.11908394, 6.13415514, 6.0614625,  6.21344602,
                                     5.87000793, 5.62161519, 5.96779107, 6.33589422, 6.4668016,
                                     7.9854581,  7.6894432,  7.5089221,  7.48638098, 7.65764618,
@@ -139,7 +139,7 @@ if __name__=="__main__":
         nDirections = len(windSpeeds)
 
     """Manual Wind Arrays"""
-    if wind == "Manual":
+    if windData == "Manual":
         nDirections = 64
         windSpeeds = np.ones(nDirections)*10.
         print nDirections
@@ -175,14 +175,14 @@ if __name__=="__main__":
 
     # --- extra mass ----
     midx = np.array([n-1], dtype=int)  # RNA mass at top
-    m = np.array([285598.8])
-    mIxx = np.array([1.14930678e+08])
-    mIyy = np.array([2.20354030e+07])
-    mIzz = np.array([1.87597425e+07])
-    mIxy = np.array([0.00000000e+00])
-    mIxz = np.array([5.03710467e+05])
-    mIyz = np.array([0.00000000e+00])
-    mrhox = np.array([-1.13197635])
+    m = np.array([285598.8]) *rotor_diameter**3/126.4**3 # mass scales with r^3
+    mIxx = np.array([1.14930678e+08]) *rotor_diameter**5/126.4**5 # I scales with r^5
+    mIyy = np.array([2.20354030e+07]) *rotor_diameter**5/126.4**5
+    mIzz = np.array([1.87597425e+07]) *rotor_diameter**5/126.4**5
+    mIxy = np.array([0.00000000e+00]) *rotor_diameter**5/126.4**5
+    mIxz = np.array([5.03710467e+05]) *rotor_diameter**5/126.4**5
+    mIyz = np.array([0.00000000e+00]) *rotor_diameter**5/126.4**5
+    mrhox = np.array([-1.13197635]) # Does not change with rotor_diameter
     mrhoy = np.array([0.])
     mrhoz = np.array([0.50875268])
     nMass = len(midx)
@@ -199,9 +199,9 @@ if __name__=="__main__":
     # # --- loading case 1: max Thrust ---
     wind_Uref1 = 11.73732
     plidx1 = np.array([n-1], dtype=int)  # at  top
-    Fx1 = np.array([1284744.19620519])
-    Fy1 = np.array([0.])
-    Fz1 = np.array([-2914124.84400512])
+    Fx1 = np.array([1284744.19620519]) *rotor_diameter**2/126.4**2 #scales with area (r^2)
+    Fy1 = np.array([0.]) *rotor_diameter**2/126.4**2
+    Fz1 = np.array([-2914124.84400512]) *rotor_diameter**2/126.4**2
     Mxx1 = np.array([3963732.76208099])
     Myy1 = np.array([-2275104.79420872])
     Mzz1 = np.array([-346781.68192839])
@@ -211,9 +211,9 @@ if __name__=="__main__":
     # # --- loading case 2: max wind speed ---
     wind_Uref2 = 70.0
     plidx2 = np.array([n-1], dtype=int)  # at  top
-    Fx2 = np.array([930198.60063279])
-    Fy2 = np.array([0.])
-    Fz2 = np.array([-2883106.12368949])
+    Fx2 = np.array([930198.60063279]) *rotor_diameter**2/126.4**2
+    Fy2 = np.array([0.]) *rotor_diameter**2/126.4**2
+    Fz2 = np.array([-2883106.12368949]) *rotor_diameter**2/126.4**2
     Mxx2 = np.array([-1683669.22411597])
     Myy2 = np.array([-2522475.34625363])
     Mzz2 = np.array([147301.97023764])
@@ -243,7 +243,7 @@ if __name__=="__main__":
 
     nPoints = len(d_param)
     nFull = n
-    wind = 'PowerWind'
+    wind = 'LogWind'
 
 
     """set up the problem"""
@@ -321,8 +321,8 @@ if __name__=="__main__":
     # --- Design Variables ---
     prob.driver.add_desvar('turbineH1', lower=rotor_diameter/2.+10, upper=None, scaler=1.0)
     prob.driver.add_desvar('turbineH2', lower=rotor_diameter/2.+10, upper=None, scaler=1.0)
-    prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX), scaler=1.0)
-    prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY), scaler=1.0)
+    # prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX), scaler=1.0)
+    # prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY), scaler=1.0)
     prob.driver.add_desvar('d_paramH1', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.array([6.3, 6.3, 6.3]), scaler=1.0)
     prob.driver.add_desvar('t_paramH1', lower=np.ones(nPoints)*.001, upper=None, scaler=1.0)
     prob.driver.add_desvar('d_paramH2', lower=np.array([1.0, 1.0, d_param[nPoints-1]-0.0001]), upper=np.array([6.3, 6.3, 6.3]), scaler=1.0)
@@ -355,12 +355,15 @@ if __name__=="__main__":
     prob.driver.add_constraint('TowerH2.tower1.f1', lower=1.1*freq1p)
 
     # boundary constraint (convex hull)
-    prob.driver.add_constraint('boundaryDistances', lower=np.zeros(nVertices*nTurbs), scaler=1.0)
+    # prob.driver.add_constraint('boundaryDistances', lower=np.zeros(nVertices*nTurbs), scaler=1.0)
     # spacing constraint
-    prob.driver.add_constraint('sc', lower=np.zeros(((nTurbs-1.)*nTurbs/2.)), scaler=1.0/rotor_diameter)
+    # prob.driver.add_constraint('sc', lower=np.zeros(((nTurbs-1.)*nTurbs/2.)), scaler=1.0/rotor_diameter)
 
     # ----------------------
 
+    prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
+
+    start = time.time()
     prob.setup()
 
     """run the problem"""
@@ -369,10 +372,12 @@ if __name__=="__main__":
     prob['turbineH1'] = turbineH1
     prob['turbineH2'] = turbineH2
     prob['H1_H2'] = H1_H2
+    prob['diameter'] = rotor_diameter
 
     prob['turbineX'] = turbineX
     prob['turbineY'] = turbineY
     prob['yaw0'] = yaw
+    prob['ratedPower'] = np.ones_like(turbineX)*5000 # in kw
 
     prob['boundaryVertices'] = boundaryVertices
     prob['boundaryNormals'] = boundaryNormals
@@ -507,6 +512,7 @@ if __name__=="__main__":
 
     print 'Turbine H1: ', prob['turbineH1']
     print 'Turbine H2: ', prob['turbineH2']
+    print 'Rotor Diameter: ', rotor_diameter
     print 'H1_H2: ', prob['H1_H2']
     print 'TurbineX: ', prob['turbineX']
     print 'TurbineY: ', prob['turbineY']
@@ -525,6 +531,7 @@ if __name__=="__main__":
     print 'z_param H1: ', prob['TowerH1.z_param']
     print 'z_full H1: ', prob['TowerH1.z_full']
     print 'nDirections: ', nDirections
+    print 'Time to run: ', time.time() - start
 
 
     import matplotlib.pyplot as plt
