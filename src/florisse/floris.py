@@ -238,6 +238,7 @@ class Floris(Component):
         self.nTurbines = nTurbines
         self.verbose = verbose
         self.nSamples = nSamples
+        self.use_rotor_components = use_rotor_components
 
         self.fd_options['form'] = 'central'
         self.fd_options['step_size'] = 1.0e-6
@@ -540,6 +541,9 @@ class Floris(Component):
         J['wtVelocity%i' % direction_id, 'axialInduction'] = axialInductionb
         J['wtVelocity%i' % direction_id, 'wind_speed'] = Vinfb
 
+        if self.use_rotor_components:
+            J['wtVelocity%i' % direction_id, 'wtVelocity%i' % direction_id] = 1.0
+
         return J
 
 
@@ -646,7 +650,7 @@ class DirectionGroup(Group):
         self.add('powerComp', WindDirectionPower(nTurbines=nTurbines, direction_id=direction_id, differentiable=True,
                                                  use_rotor_components=use_rotor_components),
                  promotes=['air_density', 'generatorEfficiency', 'rotorDiameter',
-                           'wtVelocity%i' % direction_id,
+                           'wtVelocity%i' % direction_id, 'ratedPower',
                            'wtPower%i' % direction_id, 'dir_power%i' % direction_id])
 
         if use_rotor_components:
@@ -717,12 +721,13 @@ class AEPGroup(Group):
                        DirectionGroup(nTurbines=nTurbines, direction_id=direction_id,
                                       use_rotor_components=use_rotor_components, datasize=datasize,
                                       differentiable=differentiable, add_IdepVarComps=False, nSamples=nSamples),
-                       promotes=(['gen_params:*', 'floris_params:*', 'air_density',
+
+                       promotes=(['gen_params:*', 'floris_params:*', 'air_density', 'ratedPower',
                                   'axialInduction', 'generatorEfficiency', 'turbineX', 'turbineY', 'turbineZ',
                                   'yaw%i' % direction_id, 'rotorDiameter', 'wtVelocity%i' % direction_id,
                                   'wtPower%i' % direction_id, 'dir_power%i' % direction_id]
                                  if (nSamples == 0) else
-                                 ['gen_params:*', 'floris_params:*', 'air_density',
+                                 ['gen_params:*', 'floris_params:*', 'air_density', 'ratedPower',
                                   'axialInduction', 'generatorEfficiency', 'turbineX', 'turbineY', 'turbineZ',
                                   'yaw%i' % direction_id, 'rotorDiameter', 'wsPositionX', 'wsPositionY',
                                   'wsPositionZ', 'wtVelocity%i' % direction_id,
@@ -734,12 +739,13 @@ class AEPGroup(Group):
                        DirectionGroup(nTurbines=nTurbines, direction_id=direction_id,
                                       use_rotor_components=use_rotor_components, datasize=datasize,
                                       differentiable=differentiable, add_IdepVarComps=False, nSamples=nSamples),
-                       promotes=(['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'axialInduction',
+
+                       promotes=(['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'ratedPower', 'axialInduction',
                                   'generatorEfficiency', 'turbineX', 'turbineY', 'turbineZ', 'yaw%i' % direction_id, 'rotorDiameter',
                                   'wtVelocity%i' % direction_id, 'wtPower%i' % direction_id,
                                   'dir_power%i' % direction_id]
                                  if (nSamples == 0) else
-                                 ['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'axialInduction',
+                                 ['Ct_in', 'Cp_in', 'gen_params:*', 'floris_params:*', 'air_density', 'ratedPower', 'axialInduction',
                                   'generatorEfficiency', 'turbineX', 'turbineY', 'turbineZ', 'yaw%i' % direction_id, 'rotorDiameter',
                                   'wsPositionX', 'wsPositionY', 'wsPositionZ',
                                   'wtVelocity%i' % direction_id, 'wtPower%i' % direction_id,

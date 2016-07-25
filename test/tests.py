@@ -104,7 +104,7 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
         self.nDirections = nDirections
 
         # print self.J
-        
+
 
     def testObj(self):
 
@@ -672,8 +672,10 @@ class GradientTestsFlorisUnifiedBV(unittest.TestCase):
         config.BV = True
 
         nTurbines = 4
+
         self.rtol = 1E-6
         self.atol = 1E-6
+
 
         np.random.seed(seed=100)
 
