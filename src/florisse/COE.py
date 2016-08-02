@@ -23,7 +23,7 @@ class farmCost(Component):
                         desc='mass of tower 2')
         self.add_param('H1_H2', np.zeros(nTurbines),
                         desc='array defining which turbines are of H1 and which are H2')
-
+        self.add_param('diameter', 126.4, units='m', desc='rotor diameter')
         self.add_output('cost', 0.0, desc='Cost of the wind farm')
 
     def solve_nonlinear(self, params, unknowns, resids):
@@ -32,6 +32,7 @@ class farmCost(Component):
         mass1 = params['mass1']
         mass2 = params['mass2']
         H1_H2 = params['H1_H2']
+        diameter = params['diameter']
 
         mass = np.zeros(nTurbines)
         for i in range(nTurbines):
@@ -41,29 +42,34 @@ class farmCost(Component):
                 mass[i] = mass2
 
         # Local Variables
-        fixed_charge_rate = 0.095
-        tax_rate = 0.4
-        ppi_mat   = 1.0465528035
-        slope   = 13.0
-        intercept     = 5813.9
-        bos = 559. * 5e3
-        array_losses = 0.059
-        other_losses = 0.0
-        availability = 0.94
-        losses = availability * (1-array_losses) * (1-other_losses)
+        # fixed_charge_rate = 0.095
+        # tax_rate = 0.4
+        # ppi_mat   = 1.0465528035
+        # slope   = 13.0
+        # intercept     = 5813.9
+        # bos = 559. * 5e3
+        # array_losses = 0.059
+        # other_losses = 0.0
+        # availability = 0.94
+        # losses = availability * (1-array_losses) * (1-other_losses)
         assemblyCostMultiplier = 0.30
         profitMultiplier = 0.20
         overheadCostMultiplier = 0.0
         transportMultiplier = 0.0
 
-        rotor_cost = 1505102.53
-        nacelle_cost = 3000270.
+        # rotor_cost = 1505102.53 #Number from Ryan
+        # nacelle_cost = 3000270. #Number from Ryan
+        """these are for the NREL 5 MW reference turbine"""
+        nacelle_cost = 2446465.19*3/4.#turbine_costsse_2015.py run *4/3 (to get purchase price)
+        rotor_cost = 1658752.71*3/4. #turbine_costsse_2015.py run *4/3 (to get purchase price)
+        # rotor_cost = rotor_cost*diameter**3/126.4**3
+        """"""
 
         #windpactMassSlope = 0.397251147546925
         #windpactMassInt   = -1414.381881
 
-        tower_mass_coeff = 19.828
-        tower_mass_exp = 2.0282
+        # tower_mass_coeff = 19.828
+        # tower_mass_exp = 2.0282
 
 
         #twrCostEscalator  = 1.5944
@@ -83,7 +89,9 @@ class farmCost(Component):
         parts_cost_farm = nTurbines*(rotor_cost + nacelle_cost) + np.sum(tower_cost) #parts cost for the entire wind farm
         turbine_multiplier = (1 + transportMultiplier + profitMultiplier) * (1+overheadCostMultiplier+assemblyCostMultiplier)
         turbine_cost = turbine_multiplier * parts_cost_farm
-
+        print 'Tower Cost: ', tower_cost
+        print 'mass 1: ', mass1
+        print 'mass 2: ', mass2
         unknowns['cost'] = turbine_cost
 
         nMass1 = nTurbines-np.sum(H1_H2)
@@ -116,10 +124,11 @@ class COEComponent(Component):
     # Componenet to calculate the cost of energy (COE)
     """
 
-    def __init__(self):
+    def __init__(self, nTurbines):
 
         super(COEComponent, self).__init__()
 
+        self.nTurbines = nTurbines
         self.add_param('cost', 0.0, desc='Cost of the wind farm')
         self.add_param('AEP', 0.0, desc='AEP of the wind farm')
 
@@ -131,19 +140,21 @@ class COEComponent(Component):
         cost = params['cost']
         AEP = params['AEP']
 
-        bos = 559. * 5e3
-        fixed_charge_rate = 0.095
-        tax_rate = 0.4
+        bos = 450. * 5e3 * self.nTurbines #450 $/kW*kW http://www.nrel.gov/docs/fy14osti/61546.pdf (estimation from plots)
+        fixed_charge_rate = 0.102 #http://www.nrel.gov/docs/fy15osti/63267.pdf pg 58: 2013 COE
+        tax_rate = 0.389 #http://www.nrel.gov/docs/fy15osti/63267.pdf pg 54 tax credit calculation
+        O_M_coeff = 0.01 #operating and maintainence cost per kWh
 
-        unknowns['COE'] = (fixed_charge_rate*(cost+bos)+ 0.0122*(1-tax_rate))/AEP
+        # unknowns['COE'] = 1000.*(fixed_charge_rate*(cost+bos)+ 0.0122*19566000*(1-tax_rate))/AEP # $/MWh
+        unknowns['COE'] = 1000.*(fixed_charge_rate*(cost+bos)+ O_M_coeff*AEP*(1-tax_rate))/AEP # $/MWh
 
     def linearize(self, params, unknowns, resids):
 
         cost = params['cost']
         AEP = params['AEP']
 
-        bos = 559. * 5e3
-        fixed_charge_rate = 0.095
+        bos = 559. * 5e3 *self.nTurbines
+        fixed_charge_rate = 0.102
 
         J = {}
         J['COE', 'cost'] = fixed_charge_rate/AEP
@@ -161,7 +172,7 @@ class COEGroup(Group):
         super(COEGroup, self).__init__()
 
         self.add('farmCost', farmCost(nTurbines), promotes=['*'])
-        self.add('COEComponent', COEComponent(), promotes=['*'])
+        self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
 
 if __name__=="__main__":
     """

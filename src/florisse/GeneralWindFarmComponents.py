@@ -1305,6 +1305,8 @@ class getUeffintegrate(Component):
         shearExp = params['shearExp']
         turbineZ = params['turbineZ']
 
+        print 'SHEAR EXPONENT: ', shearExp
+
         past = np.array([]) #an array of the heights for which Ueff has already been calculated
 
         for turbine_id in range(nTurbines):
@@ -1512,7 +1514,50 @@ class AEPobj(Component):
         return J
 
 
+def Weibull(x):
+
+    a = 1.8
+    f = np.zeros(len(x))
+    for i in range(len(x)):
+        f[i] = a*(x[i])**(a-1)*np.exp(-(x[i])**a)
+
+    return f
+
+
+def speedFreq(n):
+    hi = 30.0/7.02954403167
+    speedsX = np.linspace(0,hi,100*n)
+    speedsDist = Weibull(speedsX)
+    freq = np.zeros(n)
+
+    for i in range(n):
+        x = speedsX[i*100:(i+1)*100]
+        dist = speedsDist[i*100:(i+1)*100]
+        freq[i] = np.trapz(dist,x=x)
+
+    return freq
+
+
+def actualSpeeds(n, b):
+    hi = 30.0/7.02954403167*b
+    speeds = np.linspace(0,hi-hi/n,n)+hi/(2*n)
+
+    return speeds
+
+
+
 if __name__ == "__main__":
+    x = np.linspace(0,30,1000)
+    y = np.zeros(len(x))
+    y = myWeibull(x)
+    A = np.trapz(y,x,0.01)
+    print A
+    import matplotlib.pyplot as plt
+    plt.plot(x,y)
+    plt.show()
+
+
+    """
     import matplotlib.pyplot as plt
 
     AmaliaLocationsAndHull = loadmat('Amalia_locAndHull.mat')
@@ -1558,6 +1603,7 @@ if __name__ == "__main__":
     plt.pcolor(xx, yy, inside)
     plt.plot(turbineX, turbineY, 'ow')
     plt.show()
+    """
 
     # top = Problem()
     #
