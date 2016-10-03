@@ -52,17 +52,18 @@ class farmCost(Component):
         # other_losses = 0.0
         # availability = 0.94
         # losses = availability * (1-array_losses) * (1-other_losses)
-        assemblyCostMultiplier = 0.30
-        profitMultiplier = 0.20
-        overheadCostMultiplier = 0.0
-        transportMultiplier = 0.0
+        # assemblyCostMultiplier = 0.30
+        # profitMultiplier = 0.20
+        # overheadCostMultiplier = 0.0
+        # transportMultiplier = 0.0
 
         # rotor_cost = 1505102.53 #Number from Ryan
         # nacelle_cost = 3000270. #Number from Ryan
         """these are for the NREL 5 MW reference turbine"""
-        nacelle_cost = 2446465.19*3/4.#turbine_costsse_2015.py run *4/3 (to get purchase price)
-        rotor_cost = 1658752.71*3/4. #turbine_costsse_2015.py run *4/3 (to get purchase price)
-        # rotor_cost = rotor_cost*diameter**3/126.4**3
+        # nacelle_cost = 2446465.19*3/4.#turbine_costsse_2015.py run
+        # rotor_cost = 1658752.71*3/4. #turbine_costsse_2015.py run
+        nacelle_cost = 1715919.90 #nrel_csm_tcc_2015.py run
+        rotor_cost = 1206984.20 #nrel_csm_tcc_2015.py run
         """"""
 
         #windpactMassSlope = 0.397251147546925
@@ -87,11 +88,15 @@ class farmCost(Component):
 
 
         parts_cost_farm = nTurbines*(rotor_cost + nacelle_cost) + np.sum(tower_cost) #parts cost for the entire wind farm
-        turbine_multiplier = (1 + transportMultiplier + profitMultiplier) * (1+overheadCostMultiplier+assemblyCostMultiplier)
+        # turbine_multiplier = (1 + transportMultiplier + profitMultiplier) * (1+overheadCostMultiplier+assemblyCostMultiplier)
+        turbine_multiplier = 4./3.
         turbine_cost = turbine_multiplier * parts_cost_farm
-        print 'Tower Cost: ', tower_cost
-        print 'mass 1: ', mass1
-        print 'mass 2: ', mass2
+        # print 'Tower 1 Cost: ', tower_cost[0]
+        # print 'Tower 2 Cost: ', tower_cost[1]
+        # print 'tower mass 1: ', mass1
+        # print 'tower mass 2: ', mass2
+        # print 'Turbine 1 Cost', nacelle_cost+rotor_cost+tower_cost[0]
+        # print 'Turbine 2 Cost', nacelle_cost+rotor_cost+tower_cost[1]
         unknowns['cost'] = turbine_cost
 
         nMass1 = nTurbines-np.sum(H1_H2)

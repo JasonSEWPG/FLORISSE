@@ -32,13 +32,13 @@ class WindFrame(Component):
         super(WindFrame, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         if not differentiable:
-            self.fd_options['force_fd'] = True
-            self.fd_options['form'] = 'forward'
+            self.deriv_options['type'] = 'fd'
+            self.deriv_options['form'] = 'forward'
 
         self.nTurbines = nTurbines
         self.nSamples = nSamples
@@ -141,13 +141,13 @@ class AdjustCtCpYaw(Component):
         self. direction_id = direction_id
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         if not differentiable:
-            self.fd_options['force_fd'] = True
-            self.fd_options['form'] = 'forward'
+            self.deriv_options['type'] = 'fd'
+            self.deriv_options['form'] = 'forward'
 
         # Explicitly size input arrays
         self.add_param('Ct_in', val=np.zeros(nTurbines), desc='Thrust coefficient for all turbines')
@@ -249,9 +249,9 @@ class WindFarmAEP(Component):
         super(WindFarmAEP, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         # define inputs
         self.add_param('dirPowers', np.zeros(nDirections), units='kW',
@@ -325,9 +325,9 @@ class SpacingComp(Component):
         super(SpacingComp, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         # Explicitly size input arrays
         self.add_param('turbineX', val=np.zeros(nTurbines),
@@ -477,9 +477,9 @@ class MUX(Component):
         super(MUX, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         # define necessary class attributes
         self.nElements = nElements
@@ -529,9 +529,9 @@ class DeMUX(Component):
         super(DeMUX, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         # initialize necessary class attributes
         self.nElements = nElements
@@ -581,10 +581,10 @@ class DeMUXArrays(Component):
         super(DeMUXArrays, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
-        self.fd_options['force_fd'] = True
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
+        self.deriv_options['type'] = 'fd'
 
         # initialize necessary class attributes
         self.nElements = nElements
@@ -634,10 +634,10 @@ class organizeWindSpeeds(Component):
         super(organizeWindSpeeds, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
-        self.fd_options['force_fd'] = True
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
+        self.deriv_options['type'] = 'fd'
 
         self.nDirections = nDirections
         self.nTurbines = nTurbines
@@ -701,9 +701,9 @@ class CPCT_Interpolate_Gradients(Component):
         super(CPCT_Interpolate_Gradients, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-5
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-5
+        self.deriv_options['step_calc'] = 'relative'
 
         # define class attributes
         self.nTurbines = nTurbines
@@ -812,9 +812,9 @@ class CPCT_Interpolate_Gradients_Smooth(Component):
         super(CPCT_Interpolate_Gradients_Smooth, self).__init__()
 
         # set finite difference options (fd used for testing only)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-6
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-6
+        self.deriv_options['step_calc'] = 'relative'
 
         # define class attributes
         self.nTurbines = nTurbines
@@ -916,13 +916,13 @@ class WindDirectionPower(Component):
         self.use_rotor_components = use_rotor_components
 
         # set finite difference options (only used for testing)
-        self.fd_options['form'] = 'central'
-        self.fd_options['step_size'] = 1.0e-6
-        self.fd_options['step_type'] = 'relative'
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.0e-6
+        self.deriv_options['step_calc'] = 'relative'
 
         if not differentiable:
-            self.fd_options['force_fd'] = True
-            self.fd_options['form'] = 'forward'
+            self.deriv_options['type'] = 'fd'
+            self.deriv_options['form'] = 'forward'
 
         self.add_param('air_density', 1.1716, units='kg/(m*m*m)', desc='air density in free stream')
         self.add_param('rotorDiameter', np.zeros(nTurbines) + 126.4, units='m', desc='rotor diameters of all turbine')
@@ -1265,16 +1265,16 @@ class getUeffintegrate(Component):
 
         super(getUeffintegrate, self).__init__()
 
-        self.fd_options['form'] = 'forward'
-        self.fd_options['step_size'] = 1.0e-6
-        self.fd_options['step_type'] = 'relative'
-        self.fd_options['force_fd'] = True
+        self.deriv_options['form'] = 'forward'
+        self.deriv_options['step_size'] = 1.0e-6
+        self.deriv_options['step_calc'] = 'relative'
+        self.deriv_options['type'] = 'fd'
 
         self.nDirections = nDirections
         self.nTurbines = nTurbines
 
         # inputs
-        self.add_param('nIntegrationPoints', 5, desc='number of integration points', pass_by_obj=True)
+        self.add_param('nIntegrationPoints', 1, desc='number of integration points', pass_by_obj=True)
         self.add_param('rotorDiameter', np.zeros(nTurbines), units='m', desc='rotor diameter of each turbine')
         self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='the hub height of each turbine')
         self.add_param('wind', 'PowerWind', desc='Wind shear calculation method', pass_by_obj=True)
@@ -1304,8 +1304,6 @@ class getUeffintegrate(Component):
         z0 = params['z0']
         shearExp = params['shearExp']
         turbineZ = params['turbineZ']
-
-        print 'SHEAR EXPONENT: ', shearExp
 
         past = np.array([]) #an array of the heights for which Ueff has already been calculated
 
@@ -1338,7 +1336,7 @@ class getUeffintegrate(Component):
                             a2 = 2.*np.sqrt(rTurb**2-(turbZ-(z+dz))**2)
                         elif z+dz == turbZ:
                             a2 = 2.*rTurb
-                        elif z+dz > turbZ:
+                        else:
                             a2 = 2.*np.sqrt(rTurb**2-(z+dz-turbZ)**2)
 
                         if wind == 'PowerWind':
@@ -1405,6 +1403,8 @@ class getTurbineZ(Component):
         turbineH2 = params['turbineH2']
         H1_H2 = params['H1_H2']
         nTurbines = len(H1_H2)
+        # print 'turbineH1: ', turbineH1
+        # print 'turbineH2: ', turbineH2
 
         turbineZ = np.array([])
         for i in range(nTurbines):
