@@ -2,74 +2,135 @@ from openmdao.api import Component, Group, Problem, IndepVarComp
 import numpy as np
 from scipy.optimize import fsolve
 from math import sin, cos, sinh, cosh, sqrt, pi
-from scipy.optimize import root
+from scipy.optimize import brentq, root
 import _shellbuckling
+import _axialShear
+from akima import Akima
+from commonse.WindWaveDrag import TowerWindDrag
+from commonse.utilities import interp_with_deriv
+from math import pi
+
+
+class Tower(Group):
+    """group to calculate mass, frequency, stresses, and buckling for a tower"""
+
+    def __init__(self, nPoints, nFull):
+
+        super(Tower, self).__init__()
+
+        # set finite difference options (fd used for testing only)
+        # self.deriv_options['form'] = 'central'
+        # self.deriv_options['step_size'] = 1.E-8
+        # self.deriv_options['step_calc'] = 'relative'
+
+        self.add('TowerDiscretization', TowerDiscretization(nPoints, nFull), promotes=['*'])
+        self.add('calcMass', calcMass(nFull), promotes=['*'])
+        self.add('dynamicQgroup', dynamicQgroup(nFull), promotes=['*'])
+        self.add('shellBucklingGroup', shellBucklingGroup(nPoints, nFull), promotes=['*'])
+        self.add('averageI', averageI(nFull), promotes=['*'])
+        self.add('m_L', m_L(), promotes=['*'])
+        self.add('freq', freq(nFull), promotes=['*'])
+        self.add('windLoads', TowerWindDrag(nFull))
+
+        self.connect('towerSpeeds', 'windLoads.U')
+        self.connect('z_full', 'windLoads.z')
+        self.connect('d_full', 'windLoads.d')
+        self.connect('rhoAir', 'windLoads.rho')
+        self.connect('windLoads.windLoads:Px', 'qx')
+        self.connect('windLoads.windLoads:Py', 'qy')
+        self.connect('m','Mt')
+
 
 class calcMass(Component):
     """
     Calculate the mass of the cylinder tower
     """
 
-    def __init__(self):
+    def __init__(self, nFull):
 
         super(calcMass, self).__init__()
 
-        # self.deriv_options['form'] = 'forward'
-        # self.deriv_options['step_size'] = 1.0E-6
-        # self.deriv_options['step_calc'] = 'absolute'
-
-        self.add_param('turbineH', 0.0, desc='Height of the Tower')
-        self.add_param('d_param', np.zeros(3), desc='parameterized diameter')
-        self.add_param('t_param', np.zeros(3), desc='parameterized thickness')
-        self.add_param('rho', 0.0, desc='density of the material')
+        self.nFull = nFull
+        self.add_param('z_full', np.zeros(nFull), units='m', desc='Height of the Tower')
+        self.add_param('d_full', np.zeros(nFull), units='m', desc='parameterized diameter')
+        self.add_param('t_full', np.zeros(nFull), units='m', desc='parameterized thickness')
+        self.add_param('rho', np.zeros(nFull), desc='density of the material')
 
         self.add_output('mass', 0.0, desc='tower mass')
 
 
     def solve_nonlinear(self, params, unknowns, resids):
-        H = params['turbineH']
-        r = params['d_param']/2.
-        t = params['t_param']
+        z_full = params['z_full']
+        d = params['d_full']
+        t = params['t_full']
         rho = params['rho']
+        nFull = self.nFull
 
-        bottom_outer = 1./3.*3.141592653589793*(r[0]**2+r[0]*r[1]+r[1]**2)*H/2.
-        bottom_inner = 1./3.*3.141592653589793*((r[0]-t[0])**2+(r[0]-t[0])*(r[1]-t[1])+(r[1]-t[1])**2)*H/2.
-        top_outer = 1./3.*3.141592653589793*(r[1]**2+r[1]*r[2]+r[2]**2)*H/2.
-        top_inner = 1./3.*3.141592653589793*((r[1]-t[1])**2+(r[1]-t[1])*(r[2]-t[2])+(r[2]-t[2])**2)*H/2.
+        sectionMass = np.zeros(nFull-1)
+        for i in range(nFull-1):
+            outer = 1./3.*pi*((d[i]/2.)**2+(d[i]/2.)*(d[i+1]/2.)+ \
+                                (d[i+1]/2.)**2)*(z_full[i+1]-z_full[i])
+            inner = 1./3.*pi*(((d[i]/2.)-t[i])**2+((d[i]/2.)-t[i])* \
+                                ((d[i+1]/2.)-t[i+1])+((d[i+1]/2.)-t[i+1])**2)*(z_full[i+1]-z_full[i])
+            sectionMass[i] = (outer-inner)*rho[i]
 
-        unknowns['mass'] = (bottom_outer + top_outer - bottom_inner - top_inner)*rho
+        # bottom_outer = 1./3.*3.141592653589793*(r[0]**2+r[0]*r[1]+r[1]**2)*H/2.
+        # bottom_inner = 1./3.*3.141592653589793*((r[0]-t[0])**2+(r[0]-t[0])*(r[1]-t[1])+(r[1]-t[1])**2)*H/2.
+        # top_outer = 1./3.*3.141592653589793*(r[1]**2+r[1]*r[2]+r[2]**2)*H/2.
+        # top_inner = 1./3.*3.141592653589793*((r[1]-t[1])**2+(r[1]-t[1])*(r[2]-t[2])+(r[2]-t[2])**2)*H/2.
+
+        # unknowns['mass'] = (bottom_outer + top_outer - bottom_inner - top_inner)*rho
+        unknowns['mass'] = np.sum(sectionMass)
 
     def linearize(self, params, unknowns, resids):
-        H = params['turbineH']
-        d = params['d_param']
-        t = params['t_param']
-        rho = params['rho']
+        z_full = params['z_full']
+        d = params['d_full']
+        t = params['t_full']
+        rho = params['rho'][0] #assuming density remains constant
+        nFull = self.nFull
         mass = unknowns['mass']
+        #
+        # J = {}
+        # J['mass', 'turbineH'] = mass/H
+        #
+        dmass_dd = np.zeros((1,nFull))
+        dmass_dt = np.zeros((1,nFull))
+        dmass_dz = np.zeros((1,nFull))
+
+
+        dmass_dd[0][0] = (z_full[1]-z_full[0])*pi/12.*((2.*d[0]+d[1])-(2.*(d[0]-2.*t[0])+(d[1]-2.*t[1])))*rho
+        dmass_dt[0][0] = -1.*(z_full[1]-z_full[0])*pi/12.*(-4.*(d[0]-2.*t[0])-2.*(d[1]-2.*t[1]))*rho
+        dmass_dz[0][0] = (-rho/12.*pi*(d[0]**2+d[0]*d[1]+d[1]**2))-(-rho/12.*pi*((d[0]-2.*t[0])**2+ \
+                                (d[0]-2.*t[0])*(d[1]-2.*t[1])+(d[1]-2.*t[1])**2))
+
+        """For the dmass_dd and dmass_dt, the SECOND TO LAST value is failing the test. This
+        loop is working for every value except that one"""
+        for i in range(1, nFull-1):
+            dmass_dd[0][i] = (z_full[i+1]-z_full[i])*pi/12.*((d[i-1]+2.*d[i])+(2.*d[i]+d[i+1])-((d[i-1]-2.*t[i-1])+2.* \
+                                (d[i]-2.*t[i]))-(2.*(d[i]-2.*t[i])+(d[i+1]-2.*t[i+1])))*rho
+            dmass_dt[0][i] = -1.*(z_full[i+1]-z_full[i])*pi/12.*(-4.*(d[i]-2.*t[i])-2.*(d[i-1]-2.*t[i-1])+-4.*(d[i]- \
+                                2.*t[i])-2.*(d[i+1]-2*t[i+1]))*rho
+            z1 = (rho/12.*pi*(d[i-1]**2+d[i-1]*d[i]+d[i]**2))-(rho/12.*pi*((d[i-1]-2.*t[i-1])**2+ \
+                                    (d[i-1]-2.*t[i-1])*(d[i]-2.*t[i])+(d[i]-2.*t[i])**2))
+            z2 = (rho/12.*pi*(d[i]**2+d[i]*d[i+1]+d[i+1]**2))-(rho/12.*pi*((d[i]-2.*t[i])**2+ \
+                                    (d[i]-2.*t[i])*(d[i+1]-2.*t[i+1])+(d[i+1]-2.*t[i+1])**2))
+            dmass_dz[0][i] = z1-z2
+            # dmass_dz[0][i+1] =
+
+        # dmass_dd[0][nFull-2] = (z_full[nFull-1]-z_full[nFull-2])*3.141592653589793/12.*((d[nFull-3]+2.*d[nFull-2])+(2.*d[nFull-2]+d[nFull-1])-((d[nFull-3]-2.*t[nFull-3])+2.* \
+        #                     (d[nFull-2]-2.*t[nFull-2]))-(2.*(d[nFull-2]-2.*t[nFull-2])+(d[nFull-1]-2.*t[nFull-1])))*rho
+        # dmass_dt[0][nFull-2] = -1.*(z_full[nFull-1]-z_full[nFull-2])*3.141592653589793/12.*(-4.*(d[nFull-2]-2.*t[nFull-2])-2.*(d[nFull-3]-2.*t[nFull-3])+-4.*(d[nFull-2]- \
+        #                     2.*t[nFull-2])-2.*(d[nFull-1]-2*t[nFull-1]))*rho
+
+        dmass_dd[0][-1] = (z_full[-1]-z_full[nFull-2])*pi/12.*((2.*d[-1]+d[nFull-2])-(2.*(d[-1]-2.*t[-1])+(d[nFull-2]-2.*t[nFull-2])))*rho
+        dmass_dt[0][-1] = -1.*(z_full[-1]-z_full[nFull-2])*pi/12.*(-4.*(d[-1]-2.*t[-1])-2.*(d[nFull-2]-2.*t[nFull-2]))*rho
+        dmass_dz[0][-1] = (rho/12.*pi*(d[nFull-2]**2+d[nFull-2]*d[-1]+d[-1]**2))-(rho/12.*pi*((d[nFull-2]-2.*t[nFull-2])**2+ \
+                                (d[nFull-2]-2.*t[nFull-2])*(d[-1]-2.*t[-1])+(d[-1]-2.*t[-1])**2))
 
         J = {}
-        # J['mass', 'turbineH'] = 1./3.*3.141592653589793*((d[0]/2.)**2+(d[0]/2.)*(d[1]/2.)+(d[1]/2.)**2)/2.+ \
-        #     1./3.*3.141592653589793*((d[1]/2.)**2+(d[1]/2.)*(d[2]/2.)+(d[2]/2.)**2)/2. - \
-        #     1./3.*3.141592653589793*((d[0]/2.-t[0])**2+(d[0]/2.-t[0])*(d[1]/2.-t[1])+(d[1]/2.-t[1])**2)/2. - \
-        #     1./3.*3.141592653589793*((d[1]/2.-t[1])**2+(d[1]/2.-t[1])*(d[2]/2.-t[2])+(d[2]/2.-t[2])**2)/2.
-        J['mass', 'turbineH'] = mass/H
-
-        dmass_dD0 = H*3.141592653589793/24.*((2.*d[0]+d[1])-(2.*(d[0]-2.*t[0])+(d[1]-2.*t[1])))
-        dmass_dD1 = H*3.141592653589793/24.*((d[0]+2.*d[1])+(2.*d[1]+d[2])-((d[0]-2.*t[0])+2.*(d[1]-2.*t[1]))-(2.*(d[1]-2.*t[1])+(d[2]-2.*t[2])))
-        dmass_dD2 = H*3.141592653589793/24.*((2.*d[2]+d[1])-(2.*(d[2]-2.*t[2])+(d[1]-2.*t[1])))
-        # J['mass', 'd_param'] = np.array([dmass_dD0, dmass_dD1, dmass_dD2])
-        J['mass', 'd_param'] = np.zeros((1,3))
-        J['mass', 'd_param'][0][0] = dmass_dD0*rho
-        J['mass', 'd_param'][0][1] = dmass_dD1*rho
-        J['mass', 'd_param'][0][2] = dmass_dD2*rho
-
-        dmass_dt0 = -1.*H*3.141592653589793/24.*(-4.*(d[0]-2.*t[0])-2.*(d[1]-2.*t[1]))
-        dmass_dt1 = -1.*H*3.141592653589793/24.*(-4.*(d[1]-2.*t[1])-2.*(d[0]-2.*t[0])+-4.*(d[1]-2.*t[1])-2.*(d[2]-2*t[2]))
-        dmass_dt2 = -1.*H*3.141592653589793/24.*(-4.*(d[2]-2.*t[2])-2.*(d[1]-2.*t[1]))
-        # J['mass', 't_param'] = np.array([dmass_dt0, dmass_dt1, dmass_dt2])
-        J['mass', 't_param'] = np.zeros((1,3))
-        J['mass', 't_param'][0][0] = dmass_dt0*rho
-        J['mass', 't_param'][0][1] = dmass_dt1*rho
-        J['mass', 't_param'][0][2] = dmass_dt2*rho
+        J['mass', 'd_full'] = dmass_dd
+        J['mass', 't_full'] = dmass_dt
+        J['mass', 'z_full'] = dmass_dz
 
         return J
 
@@ -86,14 +147,6 @@ class TowerDiscretization(Component):
         self.nFull = nFull
         self.nPoints = nPoints
 
-        self.deriv_options['check_form'] = 'central'
-        self.deriv_options['check_step_size'] = 1E-6
-
-        self.deriv_options['form'] = 'central'
-        self.deriv_options['step_size'] = 1E-6
-        self.deriv_options['step_calc'] = 'relative'
-        self.deriv_options['type'] = 'fd'
-
          # variables
         self.add_param('z_param', np.zeros(nPoints), units='m', desc='parameterized locations along tower, linear lofting between')
         self.add_param('d_param', np.zeros(nPoints), units='m', desc='tower diameter at corresponding locations')
@@ -106,12 +159,131 @@ class TowerDiscretization(Component):
 
 
     def solve_nonlinear(self, params, unknowns, resids):
+        z_param = params['z_param']
+        d_param = params['d_param']
+        t_param = params['t_param']
+        z_full = params['z_full']
 
-        unknowns['d_full'] = np.interp(params['z_full'], params['z_param'], params['d_param'])
-        unknowns['t_full'] = np.interp(params['z_full'], params['z_param'], params['t_param'])
+        d_full, self.ddfull_dzfull, self.ddfull_dzparam, self.ddfull_ddparam = interp_with_deriv(z_full, z_param, d_param)
+        t_full, self.dtfull_dzfull, self.dtfull_dzparam, self.dtfull_dtparam = interp_with_deriv(z_full, z_param, t_param)
 
-    # def linearize(self, params, unknowns, resids):
+        unknowns['d_full'] = d_full
+        unknowns['t_full'] = t_full
 
+    def linearize(self, params, unknowns, resids):
+
+        J = {}
+
+        J['d_full', 'd_param'] = self.ddfull_ddparam
+        J['d_full', 't_param'] = np.zeros((self.nFull, self.nPoints))
+        J['d_full', 'z_param'] = self.ddfull_dzparam
+        J['d_full', 'z_full'] = self.ddfull_dzfull
+
+        J['t_full', 'd_param'] = np.zeros((self.nFull, self.nPoints))
+        J['t_full', 't_param'] = self.dtfull_dtparam
+        J['t_full', 'z_param'] = self.dtfull_dzparam
+        J['t_full', 'z_full'] = self.dtfull_dzfull
+
+        return J
+
+
+class dynamicQgroup(Group):
+    """group to calculate dynamic pressure at each point of the tower"""
+
+    def __init__(self, nFull):
+
+        super(dynamicQgroup, self).__init__()
+
+        self.add('speed', powWindTower(nFull), promotes=['*'])
+        self.add('q_dyn', dynamic_q(nFull), promotes=['*'])
+
+
+class powWindTower(Component):
+    """calculate the wind speed up the height of the tower"""
+    def __init__(self, nFull):
+
+        super(powWindTower, self).__init__()
+
+        self.nFull = nFull
+        self.add_param('Vel', 0.0, desc='reference wind speed')
+        self.add_param('zref', 90.0, units='m', desc='reference height')
+        self.add_param('z0', 0.0, units='m', desc='reference zero height')
+        self.add_param('shearExp', 0.15, desc='wind shear exponent')
+        self.add_param('z_full', np.zeros(nFull), units='m', desc='heights of interest')
+
+        self.add_output('towerSpeeds', np.zeros(nFull), desc='speeds at different heights')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        Vel = params['Vel']
+        zref = params['zref']
+        z0 = params['z0']
+        shearExp = params['shearExp']
+        z = params['z_full']
+
+        speeds = Vel*((z-z0)/(zref-z0))**shearExp
+
+        unknowns['towerSpeeds'] = speeds
+
+    def linearize(self, params, unknowns, resids):
+
+        nFull = self.nFull
+        Vel = params['Vel']
+        zref = params['zref']
+        z0 = params['z0']
+        shearExp = params['shearExp']
+        z = params['z_full']
+
+        speeds = Vel*((z-z0)/(zref-z0))**shearExp
+
+        J = {}
+        dspeeds_dz = np.zeros((nFull, nFull))
+        for i in range(nFull):
+            if z[i] == 0:
+                z[i] = .0000001 #at z = 0, there is an infinite gradient
+            dspeeds_dz[i][i] = Vel/((zref-z0)**shearExp)*shearExp*(z[i])**(shearExp-1.)
+
+        J['towerSpeeds', 'z_full'] = dspeeds_dz
+
+        return J
+
+
+class dynamic_q(Component):
+    """calculate the dynamic pressure"""
+    def __init__(self, nFull):
+
+        super(dynamic_q, self).__init__()
+
+        self.nFull = nFull
+
+        self.add_param('rhoAir', 1.225, units='kg/m**3', desc='density of air')
+        self.add_param('towerSpeeds', np.zeros(nFull), desc='speeds of interest')
+
+        self.add_output('q_dyn', np.zeros(nFull), desc='dynamic pressure at each point')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        rho = params['rhoAir']
+        speeds = params['towerSpeeds']
+
+        q_dyn = 0.5*rho*speeds**2
+
+        unknowns['q_dyn'] = q_dyn
+
+    def linearize(self, params, unknowns, resids):
+
+        rho = params['rhoAir']
+        speeds = params['towerSpeeds']
+        q_dyn = unknowns['q_dyn']
+        nFull = self.nFull
+
+        J = {}
+        dq_dspeeds = np.zeros((nFull,nFull))
+        for i in range(nFull):
+            dq_dspeeds[i][i] = rho*speeds[i] #The garient will be wrong at z=0, but this shouldn't matter as z0 remains fixed
+
+        J['q_dyn', 'towerSpeeds'] = dq_dspeeds
+        return J
 
 
 class hoopStressEurocode(Component):
@@ -128,8 +300,10 @@ class hoopStressEurocode(Component):
         self.add_param('d_full', np.zeros(nFull), desc='diameter at each point')
         self.add_param('t_full', np.zeros(nFull), desc='thickness at each point')
         self.add_param('L_reinforced', np.zeros(nFull), units='m')
-        self.add_param('rhoAir', 1.225, desc='density of air')
-        self.add_param('Vel', 0.0, desc='wind speed')
+        self.add_param('q_dyn', np.zeros(nFull), desc='dynamic pressure at each point')
+        #TODO Need to fix these, these are unnecessary: just used in gradients
+        self.add_param('rhoAir', 1.225, units='kg/m**3')
+        self.add_param('Vel', 0.0)
 
         self.add_output('hoop_stress', np.zeros(nFull), desc='hoop stress at each point')
 
@@ -138,10 +312,8 @@ class hoopStressEurocode(Component):
         d = params['d_full']
         t = params['t_full']
         L_reinforced = params['L_reinforced']
-        rho = params['rhoAir']
-        Vel = params['Vel']
 
-        q_dyn = 0.5*rho*Vel**2 #TODO THIS NEEDS TO BE FIXED
+        q_dyn = params['q_dyn']
         r = d/2.0-t/2.0  # radius of cylinder middle surface
         omega = L_reinforced/np.sqrt(r*t)
 
@@ -150,11 +322,10 @@ class hoopStressEurocode(Component):
         Peq = k_w*q_dyn
         hoop_stress = -Peq*r/t
 
-        print 'MINE: '
-        print 'q_dyn: ', q_dyn
         unknowns['hoop_stress'] = hoop_stress
 
     def linearize(self, params, unknowns, resids):
+        #TODO fix this
 
         nFull = self.nFull
 
@@ -199,77 +370,141 @@ class hoopStressEurocode(Component):
             a8 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
             dhoop_dT_full[i] = a1*(a2-a3-a4) + a5*a6 + a7*a8
 
-
         J['hoop_stress', 'd_full'] = dhoop_dD_full
         J['hoop_stress', 't_full'] = dhoop_dT_full
 
         return J
 
 
-
-class axialStress(Component):
+class axial_and_shear(Component):
     """axial stress at each point"""
 
     def __init__(self, nFull):
 
-        super(axialStress, self).__init__()
+        super(axial_and_shear, self).__init__()
 
         self.nFull = nFull
-
+        self.add_param('m', np.array([0.]), units='kg', desc='mass at top')
         self.add_param('d_full', np.zeros(nFull), desc='diameter at each point')
         self.add_param('t_full', np.zeros(nFull), desc='thickness at each point')
-        self.add_param('z_full', np.zeros(nFull), desc='location on tower')
+        self.add_param('z_full', np.zeros(nFull), units='m', desc='location on tower')
         self.add_param('Fx', 0.0, desc='fx force at top of the tower')
+        self.add_param('Fy', 0.0, desc='fy at the top of the tower')
         self.add_param('Fz', 0.0, desc='z force at top of tower')
+        self.add_param('qx', np.zeros(nFull), desc='wind load in x')
+        self.add_param('qy', np.zeros(nFull), desc='wind load in y')
         self.add_param('Mxx', 0.0, desc='moments at the top of the tower, xx')
         self.add_param('Myy', 0.0, desc='moments at the top of the tower, yy')
-        self.add_param('shearExp', 0.15, desc='Shear exponent')
-        self.add_param('rhoAir', 1.225, desc='density of air')
-        self.add_param('V', 0.0, desc='wind speed at reference height (90 m for NREL 5 MW reference turbine)')
-        self.add_param('zref', 90., desc='height corresponding to wind speed V')
+        self.add_param('rho', np.zeros(nFull), desc='density of the tower')
+        self.add_param('mrhox', np.zeros([1]), units='m', desc='center of mass displacement in x') #need to change the length of this array as necessary
 
-        self.add_output('axial_stress', np.zeros(nFull), desc='hoop stress at each point')
+        self.add_output('axial_stress', np.zeros(nFull), desc='axial stress at each point')
+        self.add_output('shear_stress', np.zeros(nFull), desc='shear stress at each point')
 
     def solve_nonlinear(self, params, unknowns, resids):
 
+        m = params['m']
         d_full = params['d_full']
         t_full = params['t_full']
         z_full = params['z_full']
         Fz = params['Fz']
         Fx = params['Fx']
+        Fy = params['Fy']
         Mxx = params['Mxx']
         Myy = params['Myy']
-        rho = params['rhoAir']
-        V = params['V']
-        shearExp = params['shearExp']
-        zref = params['zref']
-        pi = 3.1415926
-        nFull = self.nFull
+        qx = params['qx']
+        qy = params['qy']
+        rho = params['rho']
+        mrhox = params['mrhox']
 
-        ztop = z_full[-1]
-        Az = np.zeros(nFull)
-        momentY = np.zeros(nFull)
-        for i in range(nFull):
-            Az[i] = 0.25*pi*(d_full[i]**2 - (d_full[i]-2.*t_full[i])**2)
-            p1 = 0.5*rho*V**2/(zref**(2*shearExp))
-            DD = d_full[i :]
-            D = np.sum(DD)/len(DD)
-            drag = p1*D*(ztop**(2.*shearExp+1)-z_full[i]**(2.*shearExp+1))
-            windMoment = drag*(ztop-z_full[i])/2.
-            momentY[i] = Myy-windMoment-Fx*(ztop-z_full[i]) #TODO A LITTLE OFF?
-
-        Iyy = pi/4.*((d_full/2.)**4-((d_full-2.*t_full)/2.)**4)
-        print 'My Axial: '
-        print 'Mxx: ', Mxx
-        print 'Myy: ', momentY
-        axial_stress = Fz/Az + np.sqrt(Mxx**2+momentY**2)/Iyy*d_full/2.0
+        axial_stress, shear_stress = _axialShear.axial_and_shear(d_full, t_full, z_full, Fx, Fy, Fz, qx, qy, \
+                                    Mxx, Myy, rho, mrhox, m)
 
         unknowns['axial_stress'] = axial_stress
+        unknowns['shear_stress'] = shear_stress
 
+    def linearize(self, params, unknowns, resids):
 
+        m = params['m']
+        d_full = params['d_full']
+        t_full = params['t_full']
+        z_full = params['z_full']
+        Fz = params['Fz']
+        Fx = params['Fx']
+        Fy = params['Fy']
+        Mxx = params['Mxx']
+        Myy = params['Myy']
+        qx = params['qx']
+        qy = params['qy']
+        rho = params['rho']
+        mrhox = params['mrhox']
+        nFull = self.nFull
 
+        #wrt diameter
+        dd = np.eye(nFull)
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        axial_stress,da_dd,shear_stress,ds_dd = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
+                            Myy,rho,mrhox,m)
 
-    # def linearize(self, params, unknowns, resids):
+        #wrt thickness
+        dd = np.zeros((nFull, nFull))
+        td = np.eye(nFull)
+        zd = np.zeros((nFull, nFull))
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        axial_stress,da_dt,shear_stress,ds_dt = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
+                            Myy,rho,mrhox,m)
+
+        #wrt z
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.eye(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        axial_stress,da_dz,shear_stress,ds_dz = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
+                            Myy,rho,mrhox,m)
+
+        #wrt qx (wind loads in x)
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        qxd = np.eye(nFull)
+        qyd = np.zeros((nFull, nFull))
+        axial_stress,da_dqx,shear_stress,ds_dqx = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
+                            Myy,rho,mrhox,m)
+
+        #wrt qy (wind loads in y)
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.eye(nFull)
+        axial_stress,da_dqy,shear_stress,ds_dqy = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
+                            Myy,rho,mrhox,m)
+
+        J = {}
+
+        J['axial_stress', 'd_full'] = da_dd.T
+        J['axial_stress', 't_full'] = da_dt.T
+        J['axial_stress', 'z_full'] = da_dz.T
+        J['axial_stress', 'qx'] = da_dqx.T
+        J['axial_stress', 'qy'] = da_dqy.T
+
+        J['shear_stress', 'd_full'] = ds_dd.T
+        J['shear_stress', 't_full'] = ds_dt.T
+        J['shear_stress', 'z_full'] = ds_dz.T
+        J['shear_stress', 'qx'] = ds_dqx.T
+        J['shear_stress', 'qy'] = ds_dqy.T
+
+        return J
 
 
 class shellBuckling(Component):
@@ -304,85 +539,197 @@ class shellBuckling(Component):
         gamma_f = params['gamma_f']
         gamma_b = params['gamma_b']
 
-        unknowns['shell_buckling'] = _shellbuckling.shellbucklingeurocode(d_full, t_full, axial_stress, hoop_stress, shear_stress, L_reinforced, E, sigma_y, gamma_f, gamma_b)
+        # axial_stress = np.array([ -1.79803856e+08, -1.18724763e+08, -3.99967970e+07])
+        # # hoop_stress = np.array([     -0.    ,     -103157.96160052 ,-140123.42531843])
+        # shear_stress = np.array([ 5051257.78080602,  5593468.41665133 , 6363968.7620388 ])
+        unknowns['shell_buckling'] = _shellbuckling.shellbucklingeurocode(d_full,
+                                    t_full, axial_stress, hoop_stress, shear_stress,
+                                    L_reinforced, E, sigma_y, gamma_f, gamma_b)
 
 
+    def linearize(self, params, unknowns, resids):
+        d_full = params['d_full']
+        t_full = params['t_full']
+        axial_stress = params['axial_stress']
+        hoop_stress = params['hoop_stress']
+        shear_stress = params['shear_stress']
+        L_reinforced = params['L_reinforced']
+        E = params['E']
+        sigma_y = params['sigma_y']
+        gamma_f = params['gamma_f']
+        gamma_b = params['gamma_b']
+        nFull = self.nFull
+
+        #wrt diameter
+        dd = np.eye(nFull)
+        td = np.zeros((nFull, nFull))
+        sigma_zd = np.zeros((nFull, nFull))
+        sigma_td = np.zeros((nFull, nFull))
+        tau_ztd = np.zeros((nFull, nFull))
+        eu_utilization, dbuckling_dd = _shellbuckling.shellbucklingeurocode_dv(d_full,dd, \
+                t_full,td,axial_stress,sigma_zd,hoop_stress,sigma_td,shear_stress,tau_ztd, \
+                L_reinforced,E,sigma_y,gamma_f,gamma_b)
+
+        #wrt thickness
+        dd = np.zeros((nFull, nFull))
+        td = np.eye(nFull)
+        sigma_zd = np.zeros((nFull, nFull))
+        sigma_td = np.zeros((nFull, nFull))
+        tau_ztd = np.zeros((nFull, nFull))
+        eu_utilization, dbuckling_dt = _shellbuckling.shellbucklingeurocode_dv(d_full,dd, \
+                t_full,td,axial_stress,sigma_zd,hoop_stress,sigma_td,shear_stress,tau_ztd, \
+                L_reinforced,E,sigma_y,gamma_f,gamma_b)
+
+        #wrt axial stress
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        sigma_zd = np.eye(nFull)
+        sigma_td = np.zeros((nFull, nFull))
+        tau_ztd = np.zeros((nFull, nFull))
+        eu_utilization, dbuckling_dsigmaz = _shellbuckling.shellbucklingeurocode_dv(d_full,dd, \
+                t_full,td,axial_stress,sigma_zd,hoop_stress,sigma_td,shear_stress,tau_ztd, \
+                L_reinforced,E,sigma_y,gamma_f,gamma_b)
+
+        #wrt hoop stress
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        sigma_zd = np.zeros((nFull, nFull))
+        sigma_td = np.eye(nFull)
+        tau_ztd = np.zeros((nFull, nFull))
+        eu_utilization, dbuckling_dsigmat = _shellbuckling.shellbucklingeurocode_dv(d_full,dd, \
+                t_full,td,axial_stress,sigma_zd,hoop_stress,sigma_td,shear_stress,tau_ztd, \
+                L_reinforced,E,sigma_y,gamma_f,gamma_b)
+
+        #wrt shear stress
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        sigma_zd = np.zeros((nFull, nFull))
+        sigma_td = np.zeros((nFull, nFull))
+        tau_ztd = np.eye(nFull)
+        eu_utilization, dbuckling_dtauzt = _shellbuckling.shellbucklingeurocode_dv(d_full,dd, \
+                t_full,td,axial_stress,sigma_zd,hoop_stress,sigma_td,shear_stress,tau_ztd, \
+                L_reinforced,E,sigma_y,gamma_f,gamma_b)
+
+        J = {}
+        J['shell_buckling', 'd_full'] = dbuckling_dd
+        J['shell_buckling', 't_full'] = dbuckling_dt
+        J['shell_buckling', 'axial_stress'] = dbuckling_dsigmaz
+        J['shell_buckling', 'hoop_stress'] = dbuckling_dsigmat
+        J['shell_buckling', 'shear_stress'] = dbuckling_dtauzt
+
+        return J
 
 
+class shellBucklingGroup(Group):
+    """Group to calculate the shell buckling"""
+
+    def __init__(self, nPoints, nFull):
+
+        super(shellBucklingGroup, self).__init__()
+
+        self.add('hoopStressEurocode', hoopStressEurocode(nFull), promotes=['*'])
+        self.add('axial_and_shear', axial_and_shear(nFull), promotes=['*'])
+        self.add('shellBuckling', shellBuckling(nFull), promotes=['*'])
 
 
+class averageI(Component):
 
-class calcFreq(Component):
+    def __init__(self, nFull):
 
-    def __init__(self):
+        super(averageI, self).__init__()
 
-        super(calcFreq, self).__init__()
+        self.nFull = nFull
+        self.add_param('d_full', np.zeros(nFull), units='m', desc='diameters of the tower')
+        self.add_param('t_full', np.zeros(nFull), units='m', desc='thickness of the tower')
 
-        self.add_param('turbineH', 0.0, desc='Height of the Tower')
-        self.add_param('E', 0.0, desc='Modulus of Elasticity')
-        self.add_param('t_param', np.zeros(3), desc='parameterized thickness')
-        self.add_param('d_param', np.zeros(3), desc='parameterized dimeter')
-        self.add_param('rho', 0.0, desc='tower density')
-        self.add_param('topM', 0.0, desc='Point mass at top of tower')
-        self.add_param('topI', 0.0, desc='moment of inertia at top of tower')
-
-        self.add_output('freq', 0.0, desc='first natural frequency')
-
+        self.add_output('I', 0.0, desc='average moment of inertia of the tower')
 
     def solve_nonlinear(self, params, unknowns, resids):
 
-        rho = params['rho']
-        L = params['turbineH']
-        E = params['E']
-        t1 = params['t_param'][0]
-        t2 = params['t_param'][1]
-        t3 = params['t_param'][2]
-        d1 = params['d_param'][0]
-        d2 = params['d_param'][1]
-        d3 = params['d_param'][2]
+        d_full = params['d_full']
+        t_full = params['t_full']
+        nFull = self.nFull
 
-        d = (d1+d2+d3)/3.
-        t = (t1+t2+t3)/3.
+        """average d and t then find I, thin wall cylinder"""
+        # d_avg = np.sum(d_full)/nFull
+        # t_avg = np.sum(t_full)/nFull
+        #
+        # I = pi*(d_avg/2.)**3*t_avg
+        # print 'Average D and T: ', I
+        # unknowns['I'] = I
 
-        outer = 1./3.*3.141592653589793*((d/2.)**2+(d/2.)*(d/2.)+(d/2.)**2)*L
-        inner = 1./3.*3.141592653589793*(((d/2.)-t)**2+((d/2.)-t)*((d/2.)-t)+((d/2.)-t)**2)*L
-        mass = (outer - inner)*rho
-        m = mass/L
+        """average the moments of inertia"""
+        I = pi*(d_full/2.)**3*t_full
+        # print 'Average Moments of Inertia: ', np.sum(I)/nFull
+        unknowns['I'] = np.sum(I)/nFull
 
-        def func(x):
-            M = params['topM']
-            I = params['topI']
+    def linearize(self, params, unknowns, resids):
 
-            p1 = 1.
-            p2 = np.cos(x)*np.cosh(x)
-            p3 = x*M/(m*L)*(np.cos(x)*np.sinh(x)-np.sin(x)*np.cosh(x))
-            p4 = x**3*I/(m*L**3)*(np.cosh(x)*np.sin(x)+np.sinh(x)*np.cos(x))
-            p5 = x**4*M*I/(m**2*L**4)*(1.-np.cos(x)*np.cosh(x))
+        d_full = params['d_full']
+        t_full = params['t_full']
+        nFull = self.nFull
 
-            return p1+p2+p3-p4+p5
+        J = {}
+        dd = pi*t_full/120.*3.*d_full**2
+        dt = pi/120.*(d_full)**3
+        dI_dd = np.zeros((1,nFull))
+        dI_dt = np.zeros((1,nFull))
+        for i in range(nFull):
+            dI_dd[0][i] = dd[i]
+            dI_dt[0][i] = dt[i]
+        J['I','d_full'] = dI_dd
+        J['I','t_full'] = dI_dt
 
-        x0 = fsolve(func, 0.5)
+        return J
 
-        di = d-2.*t
-        I = 3.1415926*(d**4-di**4)/64.
 
-        omega  = x0**2*(E*I/(m*L**4))**0.5
+class m_L(Component):
 
-        unknowns['freq'] = omega / (2.*3.1415926)
+    def __init__(self):
+
+        super(m_L, self).__init__()
+
+        self.add_param('L', 0.0, units='m', desc='Height of the Tower')
+        self.add_param('mass', 0.0, units='kg', desc='mass of the tower') #needs to be generalized for multiple m's
+
+        self.add_output('m_L', 0.0, desc='first natural frequency')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        L = params['L']
+        m = params['mass']
+
+        unknowns['m_L'] = m/L
+
+    def linearize(self, params, unknowns, resids):
+
+        L = params['L']
+        m = params['mass']
+
+        J = {}
+        J['m_L', 'mass'] = 1./L
+        J['m_L', 'L'] = -1.*m/L**2
+
+        return J
 
 
 class freq(Component):
 
-    def __init__(self):
+    def __init__(self, nFull):
 
         super(freq, self).__init__()
 
-        self.add_param('L', 0.0, desc='Height of the Tower')
-        self.add_param('m', 0.0, desc='Modulus of Elasticity')
-        self.add_param('I', 0.0, desc='Modulus of Elasticity')
-        self.add_param('E', 0.0, desc='Modulus of Elasticity')
-        self.add_param('Mt', 0.0, desc='parameterized thickness')
-        self.add_param('It', 0.0, desc='parameterized dimeter')
+        # self.deriv_options['type'] = 'fd'
+        # self.deriv_options['form'] = 'central'
+        # self.deriv_options['step_size'] = 1.E-4
+        # self.deriv_options['step_type'] = 'relative'
+
+        self.add_param('L', 0.0, units='m', desc='Height of the Tower')
+        self.add_param('m_L', 0.0, units='kg', desc='mass of the tower per unit length') #needs to be generalized for multiple m's
+        self.add_param('I', 0.0, desc='averaged moment of inertia of the tower')
+        self.add_param('E', np.zeros(nFull), units = 'N/m**2', desc='Modulus of Elasticity')
+        self.add_param('Mt', np.zeros(1), units='kg', desc='mass at the top of the tower')
+        self.add_param('It', 0.0, desc='moment of inertia at the top of the tower')
 
         self.add_output('freq', 0.0, desc='first natural frequency')
 
@@ -390,9 +737,9 @@ class freq(Component):
     def solve_nonlinear(self, params, unknowns, resids):
 
         L = params['L']
-        m = params['m']
+        m = params['m_L']
         I = params['I']
-        E = params['E']
+        E = params['E'][0]
         Mt = params['Mt']
         It = params['It']
 
@@ -406,68 +753,61 @@ class freq(Component):
         # L = 5.3
         # I = 3.6
 
-        def R(lam):
+        def R(lam, m, L, I):
             return 1 + cos(lam)*cosh(lam) + lam*Mt/(m*L)*(cos(lam)*sinh(lam) - sin(lam)*cosh(lam)) \
             - lam**3*It/(m*L**3)*(cosh(lam)*sin(lam) + sinh(lam)*cos(lam)) \
             + lam**4*Mt*It/(m**2*L**4)*(1 - cos(lam)*cosh(lam))
 
-        def freq(m, L, I):
+        def freq(x):
+            m = x[0]
+            L = x[1]
+            I = x[2]
 
-            l0 = 1.0
-            l = root(R, l0)['x'][0]
-            f = l**2/(2*pi)*sqrt(E*I/(m*L**4))  # divided by 2pi to give Hz
-            return f, l
+            # l = brentq(R, 0.0, 100., args=(m, L, I))
+            l = root(R, 1.0, args=(m, L, I))['x'][0]
+            omega = l**2*sqrt(E*I/(m*L**4))
+            f = omega/(2*pi)  # divided by 2pi to give Hz
 
-        f, l = freq(m, L, I)
+            sl = sin(l)
+            cl = cos(l)
+            shl = sinh(l)
+            chl = cosh(l)
+
+            pfpm = -omega/(4*pi*m)
+            pfpl = omega/(l*pi)
+            prpm = -l*Mt/(m**2*L)*(cl*shl - sl*chl) \
+                + l**3*It/(m**2*L**3)*(chl*sl + shl*cl) \
+                - 2*l**4*Mt*It/(m**3*L**4)*(1 - cl*chl)
+            prpl = -2*It*l**3*cos(l)*cosh(l)/(L**3*m) - 3*It*l**2*(sin(l)*cosh(l) + cos(l)*sinh(l))/(L**3*m) + It*Mt*l**4*(sin(l)*cosh(l) - cos(l)*sinh(l))/(L**4*m**2) + 4*It*Mt*l**3*(-cos(l)*cosh(l) + 1)/(L**4*m**2) - sin(l)*cosh(l) + cos(l)*sinh(l) - 2*Mt*l*sin(l)*sinh(l)/(L*m) + Mt*(-sin(l)*cosh(l) + cos(l)*sinh(l))/(L*m)
+
+            pfpL = -omega/(pi*L)
+            prpL = -l*Mt/(m*L**2)*(cl*shl - sl*chl) \
+                + 3*l**3*It/(m*L**4)*(chl*sl + shl*cl) \
+                - 4*l**4*Mt*It/(m**2*L**5)*(1 - cl*chl)
+
+            pfpI = omega/(4*pi*I)
+
+
+            dfdm = pfpm - pfpl*prpm/prpl
+            dfdL = pfpL - pfpl*prpL/prpl
+            dfdI = pfpI
+
+            dfdx = np.array([dfdm, dfdL, dfdI])
+
+            return f, dfdx
+
+        x = np.array([m, L, I])
+        f, self.dfdx = freq(x)
+
         unknowns['freq'] = f
 
     def linearize(self, params, unknowns, resids):
 
-        L = params['L']
-        m = params['m']
-        I = params['I']
-        E = params['E']
-        Mt = params['Mt']
-        It = params['It']
-
-        def R(lam):
-            return 1 + cos(lam)*cosh(lam) + lam*Mt/(m*L)*(cos(lam)*sinh(lam) - sin(lam)*cosh(lam)) \
-            - lam**3*It/(m*L**3)*(cosh(lam)*sin(lam) + sinh(lam)*cos(lam)) \
-            + lam**4*Mt*It/(m**2*L**4)*(1 - cos(lam)*cosh(lam))
-
-        def freq(m, L, I):
-
-            l0 = 1.0
-            l = root(R, l0)['x'][0]
-            f = l**2/(2*pi)*sqrt(E*I/(m*L**4))  # divided by 2pi to give Hz
-            return f, l
-
-        f, l = freq(m, L, I)
-
-        sl = sin(l)
-        cl = cos(l)
-        shl = sinh(l)
-        chl = cosh(l)
-
-        pfpm = -l**2/(4*pi*m)*sqrt(E*I/(m*L**4))
-        pfpl = l/pi*sqrt(E*I/(m*L**4))
-        prpm = -l*Mt/(m**2*L)*(cl*shl - sl*chl) \
-            + l**3*It/(m**2*L**3)*(chl*sl + shl*cl) \
-            - 2*l**4*Mt*It/(m**3*L**4)*(1 - cl*chl)
-        prpl = 0.00407951671291345*l**4*(sl*chl - cl*shl) + 0.0163180668516538*l**3*(-cl*chl + 1) - 0.0330680825317337*l**3*cl*chl - 0.0496021237976006*l**2*(sl*chl + cl*shl) - 0.493468795355588*l*sl*shl - 1.24673439767779*sl*chl + 1.24673439767779*cl*shl
-
-        pfpL = -l**2/(pi*L)*sqrt(E*I/(m*L**4))
-        prpL = -l*Mt/(m*L**2)*(cl*shl - sl*chl) \
-            + 3*l**3*It/(m*L**4)*(chl*sl + shl*cl) \
-            - 4*l**4*Mt*It/(m**2*L**5)*(1 - cl*chl)
-
-        pfpI = l**2/(4*pi*I)*sqrt(E*I/(m*L**4))
-
-        dfdm = pfpm - pfpl*prpm/prpl
-        dfdL = pfpL - pfpl*prpL/prpl
-        dfdI = pfpI
+        dfdx = self.dfdx
 
         J = {}
-        J['freq', 'L'] = dfdL
-        J['freq', 'm'] = dfdm
-        J['freq', 'I'] = dfdI
+        J['freq', 'L'] = dfdx[1]
+        J['freq', 'm_L'] = dfdx[0]
+        J['freq', 'I'] = dfdx[2]
+
+        return J

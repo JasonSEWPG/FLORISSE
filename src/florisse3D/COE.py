@@ -133,6 +133,10 @@ class COEComponent(Component):
 
         super(COEComponent, self).__init__()
 
+        # self.deriv_options['form'] = 'forward'
+        # self.deriv_options['step_size'] = 1.E-6
+        # self.deriv_options['step_calc'] = 'relative'
+
         self.nTurbines = nTurbines
         self.add_param('cost', 0.0, desc='Cost of the wind farm')
         self.add_param('AEP', 0.0, desc='AEP of the wind farm')
@@ -145,25 +149,29 @@ class COEComponent(Component):
         cost = params['cost']
         AEP = params['AEP']
 
-        bos = 450. * 5e3 * self.nTurbines #450 $/kW*kW http://www.nrel.gov/docs/fy14osti/61546.pdf (estimation from plots)
+        bos = 450. * 5.e3 * self.nTurbines #450 $/kW*kW http://www.nrel.gov/docs/fy14osti/61546.pdf (estimation from plots)
         fixed_charge_rate = 0.102 #http://www.nrel.gov/docs/fy15osti/63267.pdf pg 58: 2013 COE
         tax_rate = 0.389 #http://www.nrel.gov/docs/fy15osti/63267.pdf pg 54 tax credit calculation
         O_M_coeff = 0.01 #operating and maintainence cost per kWh
 
         # unknowns['COE'] = 1000.*(fixed_charge_rate*(cost+bos)+ 0.0122*19566000*(1-tax_rate))/AEP # $/MWh
-        unknowns['COE'] = 1000.*(fixed_charge_rate*(cost+bos)+ O_M_coeff*AEP*(1-tax_rate))/AEP # $/MWh
+        unknowns['COE'] = 1000.*(fixed_charge_rate*(cost+bos)+ O_M_coeff*AEP*(1.-tax_rate))/AEP # $/MWh
 
     def linearize(self, params, unknowns, resids):
 
         cost = params['cost']
         AEP = params['AEP']
 
-        bos = 559. * 5e3 *self.nTurbines
+        # bos = 559. * 5.0e3 *self.nTurbines
+        bos = 450. * 5.e3 * self.nTurbines
         fixed_charge_rate = 0.102
+        tax_rate = 0.389
+        O_M_coeff = 0.01
 
         J = {}
-        J['COE', 'cost'] = fixed_charge_rate/AEP
-        J['COE', 'AEP'] = -1*fixed_charge_rate*(cost+bos)/AEP**2
+        J['COE', 'cost'] = 1000.*fixed_charge_rate/AEP
+        J['COE', 'AEP'] = -1000.*((bos+cost)*fixed_charge_rate+AEP*O_M_coeff*(1.-tax_rate))/(AEP**2) + \
+                            1000.*O_M_coeff*(1.-tax_rate)/AEP
 
         return J
 
