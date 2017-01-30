@@ -720,7 +720,7 @@ import matplotlib.pyplot as plt
 # # plt.show()
 
 
-
+"""NEW GOOD RESULTS"""
 shear_ex = np.array([0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.16,0.17,0.18,0.19,0.2,0.21,0.22,0.23,0.24,0.25,0.26,0.27,0.28,0.29,0.3])
 shear_exSAME = np.array([0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.17,0.18,0.19,0.2,0.22,0.23,0.24,0.25,0.26,0.28,0.29,0.3])
 
@@ -743,9 +743,9 @@ COEsame = np.array([ 77.17226079,  77.59941575 , 76.2029677,   75.61773339,  75.
   64.04793872 , 63.26928275 , 62.47271311])
 AEPsame = np.array([  2.72003491e+08,   2.75533060e+08 , 2.80569967e+08,   2.83591221e+08,
    2.87479028e+08,   2.90366893e+08,   2.98030904e+08,   3.03137259e+08,
-   2.26019614e+08,   3.09722823e+08,   3.14844125e+08,   3.18745929e+08,
-   3.22133635e+08,   2.17885126e+08,   3.29655298e+08,   3.28341268e+08,
-   3.36964194e+08,   3.40052975e+08,   3.45749878e+08,   2.07569265e+08,
+   3.09722823e+08,   3.14844125e+08,   3.18745929e+08,
+   3.22133635e+08,   3.29655298e+08,   3.28341268e+08,
+   3.36964194e+08,   3.40052975e+08,   3.45749878e+08,
    3.59528084e+08,   3.66132512e+08,   3.72648240e+08])
 
 COEorig = np.array([75.74446528,  75.70258165,  75.79523874,  75.55392597,  75.73670618,
@@ -759,16 +759,138 @@ AEPorig = np.array([2.57709087e+08,   2.57863514e+08,   2.57519980e+08 ,  2.5841
    2.57942079e+08,   2.58200814e+08,   2.57751965e+08,   2.58798477e+08,
    2.58787865e+08,   2.58569679e+08,   2.58772045e+08,   2.60248616e+08,
    2.57450481e+08,   2.57756393e+08,   2.58132261e+08])
+COEgrid = np.array([ 81.04077553 , 81.04065947,  81.04054514,  81.04043107,  81.04032153,
+  81.04021217,  81.04010454 , 81.0399984 ,  81.03989376 , 81.03978965,
+  81.03968803,  81.03958802 , 81.03948817,  81.03939087 , 81.0392937,
+  81.03919848,  81.03910382 , 81.03901096 , 81.03891724 , 81.03882783,
+  81.0387372 ,  81.03864688 , 81.03855782])
+AEPgrid = np.array([  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08,
+   2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08,
+   2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08,
+   2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08,
+   2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08,
+   2.48818899e+08 ,  2.48818899e+08 ,  2.48818899e+08])
+
+COEyaw = np.array([ 67.96034792,  67.68801416,  67.66212501,  67.62045053 , 67.31733959,
+  67.34972737,  67.02763558,  66.86036215 , 66.57936994,  66.2335885,
+  65.92168269 , 65.11725425,  64.97133509 , 64.64135643,  61.97210327,
+  61.30097296 , 60.96603272 , 60.16283428 , 59.63770902,  59.44256113,
+  58.63674123 , 58.30118303 , 57.58238382])
+AEPyaw = np.array([  3.01181009e+08 ,  3.03910502e+08,   3.05845677e+08  , 3.07714656e+08,
+   3.09818145e+08 ,  3.11476882e+08 ,  3.12999242e+08  , 3.16688998e+08,
+   3.18918139e+08,   3.22811377e+08 ,  3.25229365e+08  , 3.32602991e+08,
+   3.33588292e+08,   3.37742663e+08 ,  3.54167450e+08 ,  3.58852557e+08,
+   3.62856238e+08,   3.70766577e+08 ,  3.77222434e+08 ,  3.81893579e+08,
+   3.90135058e+08 ,  3.95981666e+08 ,  4.02860896e+08])
 
 plt.figure(1)
-plt.plot(shear_ex, COEdiff, 'b', label='Two Height Groups')
-plt.plot(shear_exSAME, COEsame, 'r', label='All Same Heights')
+plt.plot(shear_ex, COEgrid, 'k', label='Original Grid')
 plt.plot(shear_ex, COEorig, 'g', label='Original Height')
+plt.plot(shear_exSAME, COEsame, 'r', label='All Same Heights')
+plt.plot(shear_ex, COEdiff, 'b', label='Two Height Groups')
+plt.plot(shear_ex, COEyaw, 'c', label='Two Height Groups with Yaw')
 plt.plot(shear_ex, COEdiff, 'ob')
 plt.plot(shear_exSAME, COEsame, 'or')
 plt.plot(shear_ex, COEorig, 'og')
+plt.plot(shear_ex, COEgrid, 'ok')
+plt.plot(shear_ex, COEyaw, 'oc')
 plt.xlabel('Shear Exponent')
 plt.ylabel('COE ($/MWhr)')
 plt.title('COE vs Shear Exponent')
 plt.legend(loc=3)
+
+plt.figure(2)
+plt.plot(shear_ex, AEPgrid, 'k', label='Original Grid')
+plt.plot(shear_ex, AEPorig, 'g', label='Original Height')
+plt.plot(shear_exSAME, AEPsame, 'r', label='All Same Heights')
+plt.plot(shear_ex, AEPdiff, 'b', label='Two Height Groups')
+plt.plot(shear_ex, AEPyaw, 'c', label='Two Height Groups with Yaw')
+plt.plot(shear_ex, AEPdiff, 'ob')
+plt.plot(shear_exSAME, AEPsame, 'or')
+plt.plot(shear_ex, AEPorig, 'og')
+plt.plot(shear_ex, AEPgrid, 'ok')
+plt.plot(shear_ex, AEPyaw, 'oc')
+plt.xlabel('Shear Exponent')
+plt.ylabel('AEP (GWhr)')
+plt.title('AEP vs Shear Exponent')
+
+
+spacing = np.array([2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0,9.5,10.0])
+
+COEorig = np.array([ 102.75194954,   86.90058485,   77.57402918,   73.30543351,   70.37394825,
+   67.94720735,   66.23713472,   64.75486607,   63.76321527,   62.9806095,
+   62.31424497,   61.71489951,   61.27147027,   60.86222166,   60.51968094,
+   60.23906066,   59.96127117])
+AEPorig = np.array([  1.92919698e+08,   2.30771146e+08,   2.60888393e+08,   2.77461351e+08,
+   2.90208128e+08,   3.01503521e+08,   3.10078566e+08,   3.18014540e+08,
+   3.23484467e+08,   3.27834288e+08,   3.31721132e+08,   3.35296636e+08,
+   3.37992002e+08,   3.40518342e+08,   3.42662104e+08,   3.44438560e+08,
+   3.46215332e+08])
+COEdiff = np.array([ 86.67483009,  76.35984135,  71.26450972,  67.64709587,  65.60828488,
+  63.9288964 ,  62.66591392 , 61.70300299 , 60.7783159 ,  60.02054813,
+  59.34146879 , 58.85407967 , 58.40681195 , 57.98858111,  57.7085986,
+  57.42150335 , 57.22468172])
+AEPdiff = np.array([2.42727026e+08,   2.74270349e+08,   2.89424951e+08 ,  3.02559289e+08,
+   3.12568370e+08,   3.21647128e+08,   3.28876212e+08,   3.36742970e+08,
+   3.46076981e+08 ,  3.50941447e+08,   3.55418442e+08,   3.58702737e+08,
+   3.61770538e+08 ,  3.64687031e+08,   3.66665884e+08,   3.68717431e+08,
+   3.70137210e+08])
+COEsame = np.array([ 100.46460601 ,  84.96178476 ,  75.66012867,   71.28533776,   68.43814046,
+   66.27763724,   65.24885499  , 63.82190646 ,  62.58170537 ,  61.89400691,
+   61.19414412,   60.76590897 ,  60.41386009 ,  60.00861941 ,  59.66493855,
+   59.43097285,   59.07955264])
+AEPsame = np.array([  2.08165754e+08,   2.49095321e+08,   2.81855396e+08,   3.00758690e+08,
+   3.14497578e+08  , 3.25790577e+08  , 3.31458044e+08  , 3.39653469e+08,
+   3.47112755e+08 ,  3.51391919e+08 ,  3.55856472e+08 ,  3.58644648e+08,
+   3.60969722e+08 ,  3.63683699e+08  , 3.66017585e+08 ,  3.67623624e+08,
+   3.70062579e+08])
+COEgrid = np.array([ 102.75194932,   89.26059748 ,  81.04054514 ,  75.62285806,   71.83966324,
+   69.12109888 ,  67.09702345 ,  65.52830739,   64.31423951,   63.333156,
+   62.54652677 ,  61.91006553 ,  61.3757152 ,   60.93058151 ,  60.56321047,
+   60.2546326 ,   59.99196218])
+AEPgrid = np.array([  1.92919698e+08 ,  2.24221308e+08,   2.48818899e+08,   2.68211324e+08,
+   2.83648733e+08 ,  2.95886535e+08 ,  3.05706603e+08  , 3.13777631e+08,
+   3.20322641e+08 ,  3.25814531e+08 ,  3.30355832e+08 ,  3.34123903e+08,
+   3.37354463e+08  , 3.40093724e+08 ,  3.42388182e+08 ,  3.44339501e+08,
+   3.46018128e+08])
+COEyaw = np.array([ 78.54133776,  71.8012152,   67.87739325 , 64.87912961 , 63.42976312,
+  62.23008794 , 61.26761225 , 60.46040433,  59.42563195 , 58.92771896,
+  58.41297915 , 58.07594393 , 57.70948963,  57.42415354 , 57.23817999,
+  57.04421013 , 56.91969836])
+AEPyaw = np.array([  2.69983438e+08  , 2.93303274e+08 ,  3.05296043e+08 ,  3.16809524e+08,
+   3.24447990e+08 ,  3.31383692e+08 ,  3.37213559e+08,   3.44441834e+08,
+   3.54857384e+08 ,  3.58202629e+08 ,  3.61727879e+08 ,  3.64073936e+08,
+   3.66659552e+08 ,  3.68698389e+08 ,  3.70039492e+08 ,  3.71448691e+08,
+   3.72358945e+08])
+
+plt.figure(3)
+plt.plot(spacing, COEgrid, 'k', label='Original Grid')
+plt.plot(spacing, COEorig, 'g', label='Original Height')
+plt.plot(spacing, COEsame, 'r', label='All Same Heights')
+plt.plot(spacing, COEdiff, 'b', label='Two Height Groups')
+plt.plot(spacing, COEyaw, 'c', label='Two Height Groups with Yaw')
+plt.plot(spacing, COEdiff, 'ob')
+plt.plot(spacing, COEsame, 'or')
+plt.plot(spacing, COEorig, 'og')
+plt.plot(spacing, COEgrid, 'ok')
+plt.plot(spacing, COEyaw, 'oc')
+plt.xlabel('Distance Between Turbines in the Starting Grid (Rotor Diameters)')
+plt.ylabel('COE ($/MWhr)')
+plt.title('COE vs Grid Spacing')
+plt.legend(loc=1)
+
+plt.figure(4)
+plt.plot(spacing, AEPgrid, 'k', label='Original Grid')
+plt.plot(spacing, AEPorig, 'g', label='Original Height')
+plt.plot(spacing, AEPsame, 'r', label='All Same Heights')
+plt.plot(spacing, AEPdiff, 'b', label='Two Height Groups')
+plt.plot(spacing, AEPyaw, 'c', label='Two Height Groups with Yaw')
+plt.plot(spacing, AEPdiff, 'ob')
+plt.plot(spacing, AEPsame, 'or')
+plt.plot(spacing, AEPorig, 'og')
+plt.plot(spacing, AEPgrid, 'ok')
+plt.plot(spacing, AEPyaw, 'oc')
+plt.xlabel('Distance Between Turbines in the Starting Grid (Rotor Diameters)')
+plt.ylabel('AEP (GWhr)')
+plt.title('AEP vs Shear Exponent')
 plt.show()

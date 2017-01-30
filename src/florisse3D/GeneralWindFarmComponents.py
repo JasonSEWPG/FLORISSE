@@ -7,6 +7,7 @@ import numpy as np
 from scipy import interp
 from scipy.io import loadmat
 from scipy.spatial import ConvexHull
+import random
 
 def add_gen_params_IdepVarComps(openmdao_group, datasize):
     openmdao_group.add('gp0', IndepVarComp('gen_params:pP', 1.88, pass_by_obj=True), promotes=['*'])
@@ -1482,58 +1483,111 @@ class PowWind(Component):
 def LnWind(uref, z, z0, z_roughness, zref):
     return uref*log((z-z0)/z_roughness)/log((zref-z0)/z_roughness)
 
+
+class hGroups(Group):
+
+    def __init__(self, nTurbs):
+
+        super(hGroups, self).__init__()
+
+        self.add('Hgroup_comp', Hgroup_comp(nTurbs), promotes=['*'])
+        self.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
+
+class Hgroup_comp(Component):
+
+    def __init__(self, nTurbs):
+
+        super(Hgroup_comp, self).__init__()
+
+        self.nTurbs = nTurbs
+        self.add_param('nGroups', 1, desc='number of height groups')
+        self.add_param('randomize', False, desc='randomize order of Hgroup array')
+
+        self.add_output('hGroup', np.array(nTurbs), desc='array assigning height groups')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        nGroups = params['nGroups']
+        nTurbs = self.nTurbs
+        groups = np.zeros(nGroups)
+        hGroup = np.zeros(nTurbs)
+        for i in range(nGroups):
+            groups[i] = i
+
+        i = 0
+        for j in range(nTurbs):
+            hGroup[j] = groups[i]
+            i += 1
+            if i > nGroups-1:
+                i = 0
+
+        if params['randomize']:
+            random.shuffle(hGroup)
+
+        unknowns['hGroup'] = hGroup
+
+
 class getTurbineZ(Component):
 
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbs):
 
         super(getTurbineZ, self).__init__()
 
         # self.deriv_options['form'] = 'forward'
         # self.deriv_options['step_size'] = 500.
         # self.deriv_options['step_calc'] = 'relative'
+        self.nTurbs = nTurbs
 
-        self.add_param('turbineH1', 0.0, units='m', desc='Turbine height 1')
-        self.add_param('turbineH2', 0.0, units='m', desc='Turbine height 2')
-        self.add_param('H1_H2', np.zeros(nTurbines), desc='An array indicating which turbines are of each height: 0 indicates H1, 1 indicates H2')
+        for i in range(nTurbs):
+            self.add_param('turbineH%s'%i, 0.0, units='m', desc='Turbine height of each group')
 
-        self.add_output('turbineZ', np.zeros(nTurbines), units='m', desc='The array of turbine heights')
+        self.add_param('nGroups', 1, desc='number of height groups')
+        self.add_param('hGroup', np.zeros(nTurbs), desc='An array indicating which turbines are of each height')
+
+        self.add_output('turbineZ', np.zeros(nTurbs), units='m', desc='The array of turbine heights')
 
 
     def solve_nonlinear(self, params, unknowns, resids):
-        turbineH1 = params['turbineH1']
-        turbineH2 = params['turbineH2']
-        H1_H2 = params['H1_H2']
-        nTurbines = len(H1_H2)
-        # print 'turbineH1: ', turbineH1
-        # print 'turbineH2: ', turbineH2
+        nTurbs = self.nTurbs
+        nGroups = params['nGroups']
+        hGroup = params['hGroup']
+        turbineZ = np.zeros(nTurbs)
 
-        turbineZ = np.array([])
-        for i in range(nTurbines):
-            if H1_H2[i] == 0:
-                turbineZ = np.append(turbineZ, turbineH1)
-            elif H1_H2[i] == 1:
-                turbineZ = np.append(turbineZ, turbineH2)
+        for j in range(nGroups):
+            for k in range(nTurbs):
+                if j == hGroup[k]:
+                    turbineZ[k] = params['turbineH%s'%j]
+
         unknowns['turbineZ'] = turbineZ
 
 
     def linearize(self, params, unknowns, resids):
-        turbineH1 = params['turbineH1']
-        turbineH2 = params['turbineH2']
-        H1_H2 = params['H1_H2']
-        nTurbs = len(H1_H2)
+        hGroup = params['hGroup']
+        nTurbs = self.nTurbs
+        nGroups = params['nGroups']
 
+        groups = np.zeros(nGroups)
+
+        for i in range(nGroups):
+            groups[i] = i
 
         J = {}
 
-        J['turbineZ', 'turbineH1'] = np.array([])
-        J['turbineZ', 'turbineH2'] = np.array([])
-        for i in range(nTurbs):
-            if H1_H2[i] == 0:
-                J['turbineZ', 'turbineH1'] = np.append(J['turbineZ', 'turbineH1'], 1)
-                J['turbineZ', 'turbineH2'] = np.append(J['turbineZ', 'turbineH2'], 0)
-            else:
-                J['turbineZ', 'turbineH1'] = np.append(J['turbineZ', 'turbineH1'], 0)
-                J['turbineZ', 'turbineH2'] = np.append(J['turbineZ', 'turbineH2'], 1)
+        for j in range(nGroups):
+            J['turbineZ', 'turbineH%s'%j] = np.zeros(nTurbs)
+
+        for k in range(nTurbs):
+            for l in range(nGroups):
+                if hGroup[k] == l:
+                    J['turbineZ', 'turbineH%s'%l][k] = 1.
+
+        # for i in range(nTurbs):
+        #     if H1_H2[i] == 0:
+        #         J['turbineZ', 'turbineH1'] = np.append(J['turbineZ', 'turbineH1'], 1)
+        #         J['turbineZ', 'turbineH2'] = np.append(J['turbineZ', 'turbineH2'], 0)
+        #     else:
+        #         J['turbineZ', 'turbineH1'] = np.append(J['turbineZ', 'turbineH1'], 0)
+        #         J['turbineZ', 'turbineH2'] = np.append(J['turbineZ', 'turbineH2'], 1)
 
         return J
 
@@ -1653,7 +1707,6 @@ def actualSpeeds(n, b):
     speeds = np.linspace(0,hi-hi/n,n)+hi/(2*n)
 
     return speeds
-
 
 
 if __name__ == "__main__":

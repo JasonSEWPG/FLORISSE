@@ -213,6 +213,7 @@ if __name__=="__main__":
 
 
     shear_ex = np.array([0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.16,0.17,0.18,0.19,0.2,0.21,0.22,0.23,0.24,0.25,0.26,0.27,0.28,0.29,0.3])
+    shear_ex = np.array([2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0,9.5,10.0])
     COE = np.zeros(len(shear_ex))
     AEP = np.zeros(len(shear_ex))
     shellH11 = np.zeros(len(shear_ex))
@@ -237,12 +238,14 @@ if __name__=="__main__":
     shearH12 = np.zeros(len(shear_ex))
     shearH22 = np.zeros(len(shear_ex))
 
+    diff = np.zeros(len(shear_ex))
+
     for i in range(len(shear_ex)):
 
-        shearExp = shear_ex[i]
-        opt_filenameXYZ = 'XYZ_XYdt_%s.txt'%shear_ex[i]
-        opt_filename_dt = 'dt_XYdt_%s.txt'%shear_ex[i]
-        # opt_filename_yaw = 'YAW_%s.txt'%shear_ex[i]
+        shearExp = 0.1
+        opt_filenameXYZ = 'XYZ_XYZdt_%s.txt'%shear_ex[i]
+        opt_filename_dt = 'dt_XYZdt_%s.txt'%shear_ex[i]
+        opt_filename_yaw = 'YAW_%s.txt'%shear_ex[i]
 
         optXYZ = open(opt_filenameXYZ)
         optimizedXYZ = np.loadtxt(optXYZ)
@@ -260,11 +263,12 @@ if __name__=="__main__":
         d_paramH2 = optimized_dt[:,1]
         t_paramH1 = optimized_dt[:,2]
         t_paramH2 = optimized_dt[:,3]
-        # opt_yaw = open(opt_filename_yaw)
-        # optimizedYaw = np.loadtxt(opt_yaw)
-        # yaw = np.zeros((nDirections, nTurbs))
-        # for j in range(nDirections):
-        #     yaw[j] = optimizedYaw[j]
+        diff[i] = abs(turbineH1-turbineH2)
+        opt_yaw = open(opt_filename_yaw)
+        optimizedYaw = np.loadtxt(opt_yaw)
+        yaw = np.zeros((nDirections, nTurbs))
+        for j in range(nDirections):
+            yaw[j] = optimizedYaw[j]
 
         """set up the problem"""
         prob = Problem()
@@ -324,10 +328,10 @@ if __name__=="__main__":
 
         prob['turbineX'] = turbineX
         prob['turbineY'] = turbineY
-        prob['yaw0'] = yaw
-        # for direction in range(nDirections):
-        #     prob['yaw%s'%direction] = yaw[direction]
-        #     print yaw[direction]
+        # prob['yaw0'] = yaw
+        for direction in range(nDirections):
+            prob['yaw%s'%direction] = yaw[direction]
+            print yaw[direction]
         prob['ratedPower'] = np.ones_like(turbineX)*5000 # in kw
 
         # assign values to constant inputs (not design variables)
@@ -531,10 +535,11 @@ if __name__=="__main__":
     # print 'Tower H2 Stress: Max Thrust: ', prob['TowerH2.tower1.stress']
     # print 'Tower H2 Stress: Max Wind Speed: ', prob['TowerH2.tower2.stress']
     #
-    # print 'Tower H1 Shell Buckling: Max Thrust: ', prob['TowerH1.tower1.shell_buckling']
-    # print 'Tower H1 Shell Buckling: Max Wind Speed: ', prob['TowerH1.tower2.shell_buckling']
-    # print 'Tower H2 Shell Buckling: Max Thrust: ', prob['TowerH2.tower1.shell_buckling']
-    # print 'Tower H2 Shell Buckling: Max Wind Speed: ', prob['TowerH2.tower2.shell_buckling']
+    print 'Tower H1 Shell Buckling: Max Thrust: ', prob['TowerH1.tower1.shell_buckling']
+    print 'Tower H1 Shell Buckling: Max Wind Speed: ', prob['TowerH1.tower2.shell_buckling']
+    print 'Tower H2 Shell Buckling: Max Thrust: ', prob['TowerH2.tower1.shell_buckling']
+    print 'Tower H2 Shell Buckling: Max Wind Speed: ', prob['TowerH2.tower2.shell_buckling']
+    print 'Diff: ', diff
     #
     # print 'Tower H1 Global Buckling: Max Thrust: ', prob['TowerH1.tower1.global_buckling']
     # print 'Tower H1 Global Buckling: Max Wind Speed: ', prob['TowerH1.tower2.global_buckling']

@@ -36,12 +36,19 @@ if __name__=="__main__":
         # opt_filenameXYZ = 'XYZ_%s_'%space[i]+numRows+'_'+shear_Exp+'_'+optimizer+'_'+minSpacing+'_'+maxD+'.txt'
         # opt_filenameXYZ = 'XYZ_'+spacing+'_'+numRows+'_%s_' %shear_exSNOPT[i]+optimizer+'_'+minSpacing+'_'+maxD+'.txt'
         # opt_filenameXYZ = 'XYZ_%s_5_0.1_SNOPT_amaliaWind.txt'%space[i]
-        opt_filenameXYZ = 'XYZ_3.1_5_0.1_SP_2_6.3.txt'
-        yaw = np.array([-25.77386411 ,  0.36249738,  20.52707388,  14.52279668 ,  0.  ,        10.60043967,
-    0.31658236,  21.36967701,   0.  ,         0.   ,       12.03989514,
-   12.33125514,  22.30858498,   0. ,          0.  ,         7.96646751,
-   -5.63804421  , 0.  ,        -7.32507205 ,  0.,           0.   ,        0.,
-    0.    ,       0.   ,        0. ,       ])
+        opt_filenameXYZ = 'XYZ_XYZdt_0.1.txt'
+   #      yaw = np.array([-25.77386411 ,  0.36249738,  20.52707388,  14.52279668 ,  0.  ,        10.60043967,
+   #  0.31658236,  21.36967701,   0.  ,         0.   ,       12.03989514,
+   # 12.33125514,  22.30858498,   0. ,          0.  ,         7.96646751,
+   # -5.63804421  , 0.  ,        -7.32507205 ,  0.,           0.   ,        0.,
+   #  0.    ,       0.   ,        0. ,       ])
+        yaw = np.array([2.229128835854216106e+01, -1.487864906614930227e+01, 2.153123506931992281e+01,
+         0.0, 0.0, 2.885511470386234834e+01, -6.960273917012838041e+00, -2.030882265050574986e+01,
+          8.729552686226025454e-03, 0.000000000000000000e+00, 2.020960295733377521e+01, 2.730962446085963791e+01,
+           -1.025662627387974268e+01, 2.151963044331225983e-03, 0.000000000000000000e+00, 2.425478729617326579e+01,
+            2.470067843804368835e+00, 0.000000000000000000e+00, 1.315381449237523093e+01, 0.000000000000000000e+00,
+             0.000000000000000000e+00, 0.000000000000000000e+00, 0.000000000000000000e+00, 0.000000000000000000e+00,
+              0.000000000000000000e+00])
 
         initial = -45.
         yaw += initial
@@ -67,7 +74,7 @@ if __name__=="__main__":
 
         # spacingGrid = shear[i]   # turbine grid spacing in diameters
         spacingGrid = warmshear[i]
-        spacingGrid = 3.1
+        spacingGrid = 3.0
         points = np.linspace(start=spacingGrid*rotor_diameter, stop=nRows*spacingGrid*rotor_diameter, num=nRows)
         xpoints, ypoints = np.meshgrid(points, points)
         turbineXstart = np.ndarray.flatten(xpoints)

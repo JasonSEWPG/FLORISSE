@@ -6,13 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from FLORISSE3D.floris import AEPGroup
 from commonse.environment import PowerWind, LogWind
-import matplotlib.pyplot as plt
 from openmdao.api import Problem, Group, IndepVarComp, pyOptSparseDriver, ExecComp, ScipyOptimizer
 import time
 import cPickle as pickle
 from setupOptimization import *
 from scipy.interpolate import interp1d
 from sys import argv
+import matplotlib.pyplot as plt
+from scipy.spatial import ConvexHull
+from matplotlib.patches import Circle
 
 
 def frequ(bins, frequencies, speeds):
@@ -94,7 +96,7 @@ if __name__=="__main__":
 
     """Grid Wind Farm"""
     if farm == "Grid":
-        nRows = 5
+        nRows = 2
         nTurbs = nRows**2
         spacing = 3.  # turbine grid spacing in diameters
         points = np.linspace(start=spacing*rotor_diameter, stop=nRows*spacing*rotor_diameter, num=nRows)
@@ -137,14 +139,14 @@ if __name__=="__main__":
     """set up 3D aspects of wind farm"""
     diff = 0.
     turbineH1 = 75.
-    turbineH2 = 120.
+    turbineH2 = 75.
     H1_H2 = np.array([])
     for i in range(nTurbs/2):
         H1_H2 = np.append(H1_H2, 0)
         H1_H2 = np.append(H1_H2, 1)
     if len(H1_H2) < nTurbs:
         H1_H2 = np.append(H1_H2, 0)
-    #H1_H2 = np.zeros(nTurbs)
+    # H1_H2 = np.zeros(nTurbs)
 
     """Define wind flow"""
     air_density = 1.1716    # kg/m^3
@@ -154,6 +156,10 @@ if __name__=="__main__":
     """Amalia Wind Arrays"""
     if windData == "Amalia":
         windSpeeds, windFrequencies, windDirections, nDirections = amaliaWind()
+        windSpeeds = np.array([10])
+        windFrequencies = np.array([1.])
+        windDirections = np.array([0.])
+        nDirections = 1
 
     """!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"""
     # bins = 13
@@ -199,12 +205,12 @@ if __name__=="__main__":
     nFull = n
     wind = 'PowerWind'
 
-    shearExp = float(argv[1])
+    shearExp = 0.1
 
-    nRows = 5
+    nRows = 2
     nTurbs = nRows**2
     # spacing = space[i]   # turbine grid spacing in diameters
-    spacing = 3.
+    spacing = float(argv[1])
     points = np.linspace(start=spacing*rotor_diameter, stop=nRows*spacing*rotor_diameter, num=nRows)
     xpoints, ypoints = np.meshgrid(points, points)
     turbineX = np.ndarray.flatten(xpoints)
@@ -309,7 +315,7 @@ if __name__=="__main__":
 
     prob.driver = pyOptSparseDriver()
     prob.driver.options['optimizer'] = 'SNOPT'
-    prob.driver.opt_settings['Summary file'] = 'SNOPT_%s.out'%shearExp
+    # prob.driver.opt_settings['Summary file'] = 'SNOPT_XYZdt_%s.out'%spacing
     prob.driver.opt_settings['Major iterations limit'] = 1000
     prob.driver.opt_settings['Major optimality tolerance'] = 1.0E-4
     prob.driver.opt_settings['Function precision'] = 1.0E-8
@@ -320,40 +326,40 @@ if __name__=="__main__":
     prob.driver.add_objective('COE', scaler=1.0E-1)
 
     # # --- Design Variables ---
-    prob.driver.add_desvar('turbineH1', lower=rotor_diameter/2.+10, upper=160., scaler=1.0E-1)
-    prob.driver.add_desvar('turbineH2', lower=rotor_diameter/2.+10, upper=160., scaler=1.0E-1)
+    # prob.driver.add_desvar('turbineH1', lower=rotor_diameter/2.+10, upper=160., scaler=1.0E-1)
+    # prob.driver.add_desvar('turbineH2', lower=rotor_diameter/2.+10, upper=160., scaler=1.0E-1)
     prob.driver.add_desvar('turbineX', lower=np.ones(nTurbs)*min(turbineX), upper=np.ones(nTurbs)*max(turbineX), scaler=1.0E-3)
     prob.driver.add_desvar('turbineY', lower=np.ones(nTurbs)*min(turbineY), upper=np.ones(nTurbs)*max(turbineY), scaler=1.0E-3)
-    prob.driver.add_desvar('d_paramH1', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.ones(nPoints)*6.3, scaler=1.0E-1)
-    prob.driver.add_desvar('t_paramH1', lower=np.ones(nPoints)*.001, upper=np.ones(nPoints)*0.05, scaler=1.0E1)
-    prob.driver.add_desvar('d_paramH2', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.ones(nPoints)*6.3, scaler=1.0E-1)
-    prob.driver.add_desvar('t_paramH2', lower=np.ones(nPoints)*.001, upper=np.ones(nPoints)*0.05, scaler=1.0E1)
+    # prob.driver.add_desvar('d_paramH1', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.ones(nPoints)*6.3, scaler=1.0E-1)
+    # prob.driver.add_desvar('t_paramH1', lower=np.ones(nPoints)*.001, upper=np.ones(nPoints)*0.05, scaler=1.0E1)
+    # prob.driver.add_desvar('d_paramH2', lower=np.array([1.0, 1.0, d_param[nPoints-1]]), upper=np.ones(nPoints)*6.3, scaler=1.0E-1)
+    # prob.driver.add_desvar('t_paramH2', lower=np.ones(nPoints)*.001, upper=np.ones(nPoints)*0.05, scaler=1.0E1)
 
     # --- Constraints ---
     #TowerH1 structure
-    prob.driver.add_constraint('TowerH1.tower1.stress', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower2.stress', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower1.global_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower2.global_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower1.shell_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower2.shell_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH1.tower1.damage', upper=1.0)
-    prob.driver.add_constraint('TowerH1.gc.weldability', upper=0.0)
-    prob.driver.add_constraint('TowerH1.gc.manufacturability', upper=0.0)
-    freq1p = 0.2  # 1P freq in Hz
-    prob.driver.add_constraint('TowerH1.tower1.f1', lower=1.1*freq1p)
-
-    #TowerH2 structure
-    prob.driver.add_constraint('TowerH2.tower1.stress', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower2.stress', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower1.global_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower2.global_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower1.shell_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH2.tower2.shell_buckling', upper=1.0)
-    prob.driver.add_constraint('TowerH2.gc.weldability', upper=0.0)
-    prob.driver.add_constraint('TowerH2.gc.manufacturability', upper=0.0)
-    freq1p = 0.2  # 1P freq in Hz
-    prob.driver.add_constraint('TowerH2.tower1.f1', lower=1.1*freq1p)
+    # prob.driver.add_constraint('TowerH1.tower1.stress', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower2.stress', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower1.global_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower2.global_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower1.shell_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower2.shell_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.tower1.damage', upper=1.0)
+    # prob.driver.add_constraint('TowerH1.gc.weldability', upper=0.0)
+    # prob.driver.add_constraint('TowerH1.gc.manufacturability', upper=0.0)
+    # freq1p = 0.2  # 1P freq in Hz
+    # prob.driver.add_constraint('TowerH1.tower1.f1', lower=1.1*freq1p)
+    #
+    # #TowerH2 structure
+    # prob.driver.add_constraint('TowerH2.tower1.stress', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.tower2.stress', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.tower1.global_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.tower2.global_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.tower1.shell_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.tower2.shell_buckling', upper=1.0)
+    # prob.driver.add_constraint('TowerH2.gc.weldability', upper=0.0)
+    # prob.driver.add_constraint('TowerH2.gc.manufacturability', upper=0.0)
+    # freq1p = 0.2  # 1P freq in Hz
+    # prob.driver.add_constraint('TowerH2.tower1.f1', lower=1.1*freq1p)
 
     # boundary constraint (convex hull)
     prob.driver.add_constraint('boundaryDistances', lower=np.zeros(nVertices*nTurbs), scaler=1.0)
@@ -539,5 +545,49 @@ if __name__=="__main__":
     print 'nDirections: ', nDirections
     print 'Time to run: ', time.time() - start
 
-    np.savetxt('XYZ_%s.txt'%shearExp, np.c_[prob['turbineX'], prob['turbineY'], prob['turbineZ']], header="turbineX, turbineY, turbineZ")
-    np.savetxt('dt_%s.txt'%shearExp, np.c_[prob['d_paramH1'], prob['d_paramH2'], prob['t_paramH1'], prob['t_paramH2'],], header="d_paramH1, t_paramH1")
+    # np.savetxt('XYZ_XYZdt_%s.txt'%spacing, np.c_[prob['turbineX'], prob['turbineY'], prob['turbineZ']], header="turbineX, turbineY, turbineZ")
+    # np.savetxt('dt_XYZdt_%s.txt'%spacing, np.c_[prob['d_paramH1'], prob['d_paramH2'], prob['t_paramH1'], prob['t_paramH2'],], header="d_paramH1, t_paramH1")
+
+    """plot results"""
+    fig = plt.gcf()
+    ax = fig.gca()
+
+    turbineXopt = prob['turbineX']
+    turbineYopt = prob['turbineY']
+    Z = prob['turbineZ']
+
+    spacingGrid = spacing
+    points = np.linspace(start=spacingGrid*rotor_diameter, stop=nRows*spacingGrid*rotor_diameter, num=nRows)
+    xpoints, ypoints = np.meshgrid(points, points)
+    turbineXstart = np.ndarray.flatten(xpoints)
+    turbineYstart = np.ndarray.flatten(ypoints)
+    points = np.zeros((nTurbs,2))
+    for j in range(nTurbs):
+        points[j] = (turbineXstart[j],turbineYstart[j])
+    hull = ConvexHull(points)
+
+    ax.set_aspect('equal')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    for simplex in hull.simplices:
+        ax.plot(points[simplex, 0], points[simplex, 1], 'k--')
+
+    for j in range(nTurbs):
+        if H1_H2[j] == 0:
+            ax.add_artist(Circle(xy=(turbineXopt[j],turbineYopt[j]),
+                      radius=rotor_diameter/2., fill=False, edgecolor='blue'))
+        else:
+            ax.add_artist(Circle(xy=(turbineXopt[j],turbineYopt[j]),
+                      radius=rotor_diameter/2., fill=False, edgecolor='red'))
+
+    ax.axis([min(turbineXopt)-200,max(turbineXopt)+200,min(turbineYopt)-200,max(turbineYopt)+200])
+    # plt.axes().set_aspect('equal')
+    # plt.legend()
+    plt.axis('off')
+    plt.title('Optimized Turbine Layout')
+    plt.show()

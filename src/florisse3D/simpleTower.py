@@ -334,6 +334,7 @@ class hoopStressEurocode(Component):
         L_reinforced = params['L_reinforced']
         rho = params['rhoAir']
         Vel = params['Vel']
+        q_dyn = params['q_dyn']
 
         C_theta = 1.5
         r = d/2.0-t/2.0
@@ -344,32 +345,49 @@ class hoopStressEurocode(Component):
         J = {}
         dhoop_dD_full = np.zeros((nFull, nFull))
         dhoop_dT_full = np.zeros((nFull, nFull))
-        for i in range(nFull):
-            di = d[i]
-            ti = t[i]
-            ri = (di/2.-ti/2.)
-            L = L_reinforced[i]
-
-            #dHoop_dD
-            p1 = -0.0140846*ri*Vel**2*rho/(ti*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti)))
-            p2 = ri/(4.*L*np.sqrt(ri*ti))+np.sqrt(ri*ti)/(2.*L*ti)
-            p3 = 0.115*Vel**2*rho/ti
-            p4 = 1.+.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
-            dhoop_dD_full[i] = p1*p2-p3*p4
+        # for i in range(nFull):
+        #     di = d[i]
+        #     ti = t[i]
+        #     ri = (di/2.-ti/2.)
+        #     L = L_reinforced[i]
 
             #dHoop_dT
-            a1 = -0.0140846*ri*Vel**2*rho/(ti*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti)))
-            a2 = (di/2.-ti)*(ri)/(2.*L*ti*np.sqrt(ri*ti))
-            a3 = ri*np.sqrt(ri*ti)/(L*ti**2)
-            a4 = np.sqrt(ri*ti)/(2.*L*ti)
+            # a1 = -0.0140846*ri*Vel**2*rho/(ti*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti)))
+            # a2 = (di/2.-ti)*(ri)/(2.*L*ti*np.sqrt(ri*ti))
+            # a3 = ri*np.sqrt(ri*ti)/(L*ti**2)
+            # a4 = np.sqrt(ri*ti)/(2.*L*ti)
+            #
+            # a5 = 0.23*ri*Vel**2*rho/(ti**2)
+            # a6 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
+            #
+            # a7 = 0.115*Vel**2*rho/ti
+            # a8 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
+            # dhoop_dT_full[i] = a1*(a2-a3-a4) + a5*a6 + a7*a8
+        # l = 0.0140846*q_dyn*r/(omega*np.sqrt(r/(omega*t))*t**2)
+        # r = 0.23*q_dyn/t*(1.+0.122474*np.sqrt(r/(omega*t)))
+        # der = -l-r
 
-            a5 = 0.23*ri*Vel**2*rho/(ti**2)
-            a6 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
+        d1 = 0.023*q_dyn*r
+        d2 = (0.25*C_theta*r/(L_reinforced*np.sqrt(r*t)))+(0.5*C_theta*np.sqrt(r*t)/(L_reinforced*t))
+        d3 = t*np.sqrt(C_theta*r*np.sqrt(r*t)/(L_reinforced*t))
+        d4 = 0.23*q_dyn*(1.+0.1*np.sqrt(C_theta*r*np.sqrt(r*t)/(L_reinforced*t)))/t
+        der_d = -d1*d2/d3-d4
 
-            a7 = 0.115*Vel**2*rho/ti
-            a8 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
-            dhoop_dT_full[i] = a1*(a2-a3-a4) + a5*a6 + a7*a8
+        t1 = 0.023*q_dyn*r
+        t2 = (C_theta*(0.5*d-t)*r/(2*L_reinforced*t*np.sqrt(r*t)))-\
+            (C_theta*r*np.sqrt(r*t)/(L_reinforced*t**2))-\
+            (0.5*C_theta*np.sqrt(r*t)/(L_reinforced*t))
+        t3 = t*np.sqrt(C_theta*r*np.sqrt(r*t)/(L_reinforced*t))
+        t4 = 0.46*q_dyn*r*(1.+0.1*np.sqrt(C_theta*r*np.sqrt(r*t)/(L_reinforced*t)))/(t**2)
+        t5 = 0.23*q_dyn*(1.+0.1*np.sqrt(C_theta*r*np.sqrt(r*t)/(L_reinforced*t)))/t
+        der_t = -t1*t2/t3+t4+t5
 
+        dhoop_dD_full = np.zeros((nFull,nFull))
+        dhoop_dT_full = np.zeros((nFull,nFull))
+
+        for i in range(nFull):
+            dhoop_dD_full[i][i] = der_d[i]
+            dhoop_dT_full[i][i] = der_t[i]
         J['hoop_stress', 'd_full'] = dhoop_dD_full
         J['hoop_stress', 't_full'] = dhoop_dT_full
 

@@ -3,8 +3,8 @@ import numpy as np
 
 if __name__=='__main__':
 
-    opt_filenameXYZ = 'XYZ_XYZdt_0.15.txt'
-    opt_filename_dt = 'dt_XYZdt_0.15.txt'
+    opt_filenameXYZ = 'XYZ_XYZdt_0.1.txt'
+    opt_filename_dt = 'dt_XYZdt_0.1.txt'
 
     optXYZ = open(opt_filenameXYZ)
     optimizedXYZ = np.loadtxt(optXYZ)
@@ -36,8 +36,8 @@ if __name__=='__main__':
     x2 = x1+diameter*spacing
 
 
-    circle1 = plt.Circle((x1,H1), radius, color='blue', fill=False)
-    circle2 = plt.Circle((x2, H2), radius, color='red', fill=False)
+    circle1 = plt.Circle((x1,H1), radius, color='red', fill=False)
+    circle2 = plt.Circle((x2, H2), radius, color='blue', fill=False)
 
 
     # (or if you have an existing figure)
@@ -51,8 +51,8 @@ if __name__=='__main__':
     py1 = np.array([0,H1/2,H1,H1,H1/2,0,0])
     px2 = np.array([x2-d2[0]/2,x2-d2[1]/2,x2-d2[2]/2,x2+d2[2]/2,x2+d2[1]/2,x2+d2[0]/2,x2-d2[0]/2])
     py2 = np.array([0,H2/2,H2,H2,H2/2,0,0])
-    ax.plot(px1,py1,color='blue')
-    ax.plot(px2,py2,color='red')
+    ax.plot(px1,py1,color='red')
+    ax.plot(px2,py2,color='blue')
 
     plt.axis([0,x2+1.5*radius,-10,max(np.array([H1,H2]))+1.5*radius])
     plt.axes().set_aspect('equal')

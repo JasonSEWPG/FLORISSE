@@ -11,35 +11,44 @@ class farmCost(Component):
     Component to calculate the cost of the wind farm
     """
 
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbines, nGroups):
 
         super(farmCost, self).__init__()
 
         self.nTurbines = nTurbines
+        self.nGroups = nGroups
 
-        self.add_param('mass1', 0.0, units='kg',
-                        desc='mass of tower 1')
-        self.add_param('mass2', 0.0, units='kg',
-                        desc='mass of tower 2')
-        self.add_param('H1_H2', np.zeros(nTurbines),
-                        desc='array defining which turbines are of H1 and which are H2')
-        self.add_param('diameter', 126.4, units='m', desc='rotor diameter')
+        # self.add_param('mass1', 0.0, units='kg',
+        #                 desc='mass of tower 1')
+        # self.add_param('mass2', 0.0, units='kg',
+        #                 desc='mass of tower 2')
+        # self.add_param('H1_H2', np.zeros(nTurbines),
+        #                 desc='array defining which turbines are of H1 and which are H2')
+        self.add_param('hGroup', np.zeros(nTurbines), desc='array to define height groups')
+        for i in range(nGroups):
+            self.add_param('mass%s'%i, 0.0, units='kg',
+                        desc='mass of each tower')
         self.add_output('cost', 0.0, desc='Cost of the wind farm')
 
     def solve_nonlinear(self, params, unknowns, resids):
 
         nTurbines = self.nTurbines
-        mass1 = params['mass1']
-        mass2 = params['mass2']
-        H1_H2 = params['H1_H2']
-        diameter = params['diameter']
+        nGroups = self.nGroups
+        # mass1 = params['mass1']
+        # mass2 = params['mass2']
+        # H1_H2 = params['H1_H2']
 
         mass = np.zeros(nTurbines)
+        # for i in range(nTurbines):
+        #     if H1_H2[i] == 0:
+        #         mass[i] = mass1
+        #     elif H1_H2[i] == 1:
+        #         mass[i] = mass2
         for i in range(nTurbines):
-            if H1_H2[i] == 0:
-                mass[i] = mass1
-            elif H1_H2[i] == 1:
-                mass[i] = mass2
+            for j in range(nGroups):
+                if j == params['hGroup'][i]:
+                    mass[i] = params['mass%s'%j]
+        # print "mass: ", mass
 
         # Local Variables
         # fixed_charge_rate = 0.095
@@ -99,16 +108,19 @@ class farmCost(Component):
         # print 'Turbine 2 Cost', nacelle_cost+rotor_cost+tower_cost[1]
         unknowns['cost'] = turbine_cost
 
-        nMass1 = nTurbines-np.sum(H1_H2)
-        nMass2 = np.sum(H1_H2)
+        # nMass1 = nTurbines-np.sum(H1_H2)
+        # nMass2 = np.sum(H1_H2)
         # print "H2_H2: ", H1_H2
         # print "nMass1: ", nMass1
         # print "nMass2: ", nMass2
 
-        dCost_dMass1 = turbine_multiplier*tower_mass_cost_coefficient*nMass1
-        dCost_dMass2 = turbine_multiplier*tower_mass_cost_coefficient*nMass2
-        self.dCost_dMass1 = dCost_dMass1
-        self.dCost_dMass2 = dCost_dMass2
+        # dCost_dMass1 = turbine_multiplier*tower_mass_cost_coefficient*nMass1
+        # dCost_dMass2 = turbine_multiplier*tower_mass_cost_coefficient*nMass2
+        # self.dCost_dMass1 = dCost_dMass1
+        # self.dCost_dMass2 = dCost_dMass2
+        dCost_dMass = turbine_multiplier*tower_mass_cost_coefficient
+        self.dCost_dMass = dCost_dMass
+
         # for i in range(nTurbines):
         #     dCost_dTurbineZ[i] = tower_mass_exp*turbine_multiplier*tower_mass_cost_coefficient*tower_mass_coeff*turbineZ[i]**(tower_mass_exp-1)
         #
@@ -116,10 +128,22 @@ class farmCost(Component):
 
 
     def linearize(self, params, unknowns, resids):
+        hGroup = params['hGroup']
+        dCost = self.dCost_dMass
+        nGroups = self.nGroups
+        nTurbines = self.nTurbines
 
         J = {}
-        J['cost', 'mass1'] = self.dCost_dMass1
-        J['cost', 'mass2'] = self.dCost_dMass2
+        nEach_Group = np.zeros(nGroups)
+        for i in range(nGroups):
+            for j in range(nTurbines):
+                if hGroup[j] == i:
+                    nEach_Group[i] += 1
+
+        for i in range(self.nGroups):
+            J['cost', 'mass%s'%i] = dCost*nEach_Group[i]
+        # J['cost', 'mass1'] = self.dCost_dMass1
+        # J['cost', 'mass2'] = self.dCost_dMass2
 
         return J
 
@@ -180,11 +204,11 @@ class COEGroup(Group):
     """
     Group containing components ot calculate COEGroup
     """
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbines, nGroups):
 
         super(COEGroup, self).__init__()
 
-        self.add('farmCost', farmCost(nTurbines), promotes=['*'])
+        self.add('farmCost', farmCost(nTurbines, nGroups), promotes=['*'])
         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
 
 if __name__=="__main__":
@@ -192,39 +216,60 @@ if __name__=="__main__":
     This is just to test during development
     """
 
-    H1 = 150.
-    H2 = 75.
+    # H1 = 150.
+    # H2 = 75.
+    #
+    # H1_H2 = np.array([0,0,1,0,1,0,1,1,1])
+    #
+    # nTurbines = len(H1_H2)
+    #
+    # prob = Problem()
+    # root = prob.root = Group()
+    #
+    # root.add('H1', IndepVarComp('turbineH1', H1), promotes=['*'])
+    # root.add('H2', IndepVarComp('turbineH2', H2), promotes=['*'])
+    # root.add('getTurbineZ', getTurbineZ(nTurbines), promotes=['*'])
+    # root.add('farmCost', farmCost(nTurbines), promotes=['*'])
+    #
+    # prob.driver = pyOptSparseDriver()
+    # prob.driver.options['optimizer'] = 'SNOPT'
+    # prob.driver.opt_settings['Major iterations limit'] = 1000
+    #
+    # prob.driver.add_objective('cost')
+    #
+    # # --- Design Variables ---
+    # prob.driver.add_desvar('turbineH1', lower=60., upper=None)
+    # prob.driver.add_desvar('turbineH2', lower=60., upper=None)
+    #
+    # prob.setup()
+    #
+    # #prob['turbineH1'] = H1
+    # #prob['turbineH2'] = H2
+    # prob['H1_H2'] = H1_H2
+    #
+    # prob.run()
+    #
+    # print "Cost: ", prob['cost']
+    # print 'H1: ', prob['turbineH1']
+    # print 'H2: ', prob['turbineH2']
 
-    H1_H2 = np.array([0,0,1,0,1,0,1,1,1])
-
-    nTurbines = len(H1_H2)
 
     prob = Problem()
     root = prob.root = Group()
 
-    root.add('H1', IndepVarComp('turbineH1', H1), promotes=['*'])
-    root.add('H2', IndepVarComp('turbineH2', H2), promotes=['*'])
-    root.add('getTurbineZ', getTurbineZ(nTurbines), promotes=['*'])
+    mass = np.array([100000.])
+    nTurbines = len(mass)
     root.add('farmCost', farmCost(nTurbines), promotes=['*'])
-
-    prob.driver = pyOptSparseDriver()
-    prob.driver.options['optimizer'] = 'SNOPT'
-    prob.driver.opt_settings['Major iterations limit'] = 1000
-
-    prob.driver.add_objective('cost')
-
-    # --- Design Variables ---
-    prob.driver.add_desvar('turbineH1', lower=60., upper=None)
-    prob.driver.add_desvar('turbineH2', lower=60., upper=None)
 
     prob.setup()
 
     #prob['turbineH1'] = H1
     #prob['turbineH2'] = H2
-    prob['H1_H2'] = H1_H2
+    for i in range(nTurbines):
+        prob['mass%s'%i] = mass[i]
 
     prob.run()
 
     print "Cost: ", prob['cost']
-    print 'H1: ', prob['turbineH1']
-    print 'H2: ', prob['turbineH2']
+    for i in range(nTurbines):
+        print 'Mass ', i, ': ', prob['mass%s'%i]
