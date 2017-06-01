@@ -4,7 +4,8 @@ import time
 from datetime import datetime
 from openmdao.api import Group, Component, Problem, ScipyGMRES, IndepVarComp
 #, pyOptSparseDriver
-from florisse.floris import AEPGroup
+from FLORISSE3D.floris import AEPGroup
+from FLORISSE3D.GeneralWindFarmComponents import getRotorCost
 
 class farmCost(Component):
     """
@@ -28,6 +29,8 @@ class farmCost(Component):
         for i in range(nGroups):
             self.add_param('mass%s'%i, 0.0, units='kg',
                         desc='mass of each tower')
+        self.add_param('rotorCost', np.zeros(nGroups), desc='costs of the rotors')
+
         self.add_output('cost', 0.0, desc='Cost of the wind farm')
 
     def solve_nonlinear(self, params, unknowns, resids):
@@ -73,6 +76,11 @@ class farmCost(Component):
         # rotor_cost = 1658752.71*3/4. #turbine_costsse_2015.py run
         nacelle_cost = 1715919.90 #nrel_csm_tcc_2015.py run
         rotor_cost = 1206984.20 #nrel_csm_tcc_2015.py run
+        rotor_cost = 0.0
+        for i in range(nTurbines):
+            for j in range(nGroups):
+                if j == params['hGroup'][i]:
+                    rotor_cost += params['rotorCost'][j]
         """"""
 
         #windpactMassSlope = 0.397251147546925
@@ -96,7 +104,7 @@ class farmCost(Component):
             tower_cost[i] = tower_mass_cost_coefficient*mass[i] #new cost from Katherine
 
 
-        parts_cost_farm = nTurbines*(rotor_cost + nacelle_cost) + np.sum(tower_cost) #parts cost for the entire wind farm
+        parts_cost_farm = nTurbines*nacelle_cost + rotor_cost + np.sum(tower_cost) #parts cost for the entire wind farm
         # turbine_multiplier = (1 + transportMultiplier + profitMultiplier) * (1+overheadCostMultiplier+assemblyCostMultiplier)
         turbine_multiplier = 4./3.
         turbine_cost = turbine_multiplier * parts_cost_farm
@@ -210,6 +218,7 @@ class COEGroup(Group):
 
         self.add('farmCost', farmCost(nTurbines, nGroups), promotes=['*'])
         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
+        self.add('getRotorCost', getRotorCost(nGroups), promotes=['*'])
 
 if __name__=="__main__":
     """

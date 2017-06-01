@@ -704,7 +704,7 @@ class AEPGroup(Group):
 
 
         # add vars to be seen by MPI and gradient calculations
-        self.add('dv5', IndepVarComp('rotorDiameter', np.zeros(nTurbines), units='m'), promotes=['*'])
+        # self.add('dv5', IndepVarComp('rotorDiameter', np.zeros(nTurbines), units='m'), promotes=['*'])
         self.add('dv6', IndepVarComp('axialInduction', np.zeros(nTurbines)), promotes=['*'])
         self.add('dv7', IndepVarComp('generatorEfficiency', np.zeros(nTurbines)), promotes=['*'])
         self.add('dv8', IndepVarComp('air_density', val=1.1716, units='kg/(m*m*m)'), promotes=['*'])
