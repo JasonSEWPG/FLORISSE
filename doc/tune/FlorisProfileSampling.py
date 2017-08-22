@@ -1,6 +1,6 @@
-# This example script compares FLORIS predictions with steady-state SOWFA data as obtained 
+# This example script compares FLORIS predictions with steady-state SOWFA data as obtained
 # throught the simulations described in:
-#   
+#
 
 import numpy as np
 
