@@ -944,7 +944,7 @@ class WindDirectionPower(Component):
                        desc='effective hub velocity for each turbine')
 
         self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW',
-                       desc='rated power for each turbine', pass_by_obj=True)
+                       desc='rated power for each turbine')#, pass_by_obj=True)
 
         # outputs
         self.add_output('wtPower%i' % direction_id, np.zeros(nTurbines), units='kW', desc='power output of each turbine')
@@ -958,6 +958,7 @@ class WindDirectionPower(Component):
         nTurbines = self.nTurbines
         wtVelocity = self.params['wtVelocity%i' % direction_id]
         ratedPower = params['ratedPower']
+        # print 'in comp rated power: ', ratedPower
         air_density = params['air_density']
         rotorArea = 0.25*np.pi*np.power(params['rotorDiameter'], 2)
         Cp = params['Cp']
@@ -1562,6 +1563,7 @@ class getTurbineZ(Component):
                     turbineZ[k] = params['turbineH%s'%j]
 
         unknowns['turbineZ'] = turbineZ
+        # print 'turbineZ: ', turbineZ
 
 
     def linearize(self, params, unknowns, resids):
@@ -1595,37 +1597,63 @@ class getTurbineZ(Component):
         return J
 
 
+class minHeight(Component):
+
+    def __init__(self):
+
+        super(minHeight, self).__init__()
+
+        self.add_param('diameter', 0.0, desc='rotor diameter')
+        self.add_param('height', 0.0, desc='tower height')
+        self.add_output('minHeight', 0.0, units='m', desc='min tower height')
+
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['minHeight'] = params['height']-(params['diameter']/2.+10.)
+
+
+    def linearize(self, params, unknowns, resids):
+        J = {}
+        J['minHeight','diameter'] = 0.5
+        J['minHeight','height'] = 1.
+        return J
+
+
 class getRotorDiameter(Component):
 
-    def __init__(self, nTurbs):
+    def __init__(self, nTurbs, nGroups):
 
         super(getRotorDiameter, self).__init__()
 
         self.nTurbs = nTurbs
+        self.nGroups = nGroups
 
-        for i in range(nTurbs):
+        for i in range(nGroups):
             self.add_param('rotorDiameter%s'%i, 0.0, units='m', desc='Rotor diameter of each group')
 
-        self.add_param('nGroups', 1, desc='number of height groups')
         self.add_param('hGroup', np.zeros(nTurbs), desc='An array indicating which turbines are in each group')
-        self.add_output('rotorDiameter', np.zeros(nTurbs), units='m', desc='The array of rotor diameters')
+
+        for i in range(nTurbs):
+            self.add_output('rotor_diameters%s'%i, 0., units='m', desc='Each Rotor Diameter')
+        self.add_output('rotorDiameter', np.zeros(nTurbs), units='m', desc='an array of rotor diameters')
 
 
     def solve_nonlinear(self, params, unknowns, resids):
         nTurbs = self.nTurbs
-        nGroups = params['nGroups']
+        nGroups = self.nGroups
         hGroup = params['hGroup']
         rotorDiameter = np.zeros(nTurbs)
 
-        for j in range(nGroups):
-            for k in range(nTurbs):
-                if j == hGroup[k]:
-                    rotorDiameter[k] = params['rotorDiameter%s'%j]
+        for j in range(nTurbs):
+            for k in range(nGroups):
+                if k == hGroup[j]:
+                    unknowns['rotor_diameters%s'%j] = params['rotorDiameter%s'%k]
+                    rotorDiameter[j] = params['rotorDiameter%s'%k]
 
         unknowns['rotorDiameter'] = rotorDiameter
 
-
     def linearize(self, params, unknowns, resids):
+        #TODO FIX THIS!!!
         hGroup = params['hGroup']
         nTurbs = self.nTurbs
         nGroups = params['nGroups']
@@ -1644,43 +1672,7 @@ class getRotorDiameter(Component):
             for l in range(nGroups):
                 if hGroup[k] == l:
                     J['rotorDiameter', 'rotorDiameter%s'%l][k] = 1.
-
-
-class getRotorCost(Component):
-
-    def __init__(self, nGroups):
-
-        super(getRotorCost, self).__init__()
-
-        self.nGroups = nGroups
-
-        for i in range(nGroups):
-            self.add_param('rotorDiameter%s'%i, 0.0, units='m', desc='Rotor diameter of each group')
-
-        self.add_output('rotorCost', np.zeros(nGroups))
-
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        nGroups = self.nGroups
-        rotorCost = np.zeros(nGroups)
-
-        for i in range(nGroups):
-            rotorCost[i] = 0.4513994169*params['rotorDiameter%s'%i]**3+21.*params['rotorDiameter%s'%i]**2-711.4813844*(params['rotorDiameter%s'%i]-70.)
-
-        unknowns['rotorCost'] = rotorCost
-
-
-    def linearize(self, params, unknowns, resids):
-        nGroups = self.nGroups
-        J = {}
-        for i in range(nGroups):
-            J['rotorCost','rotorDiameter%s'%i] = np.zeros(nGroups)
-
-        for i in range(nGroups):
-            J['rotorCost','rotorDiameter%s'%i][i] = 3.*0.4513994169*params['rotorDiameter%s'%i]**2+2.*+21.*params['rotorDiameter%s'%i]-711.4813844
-
         return J
-
 
 class get_z(Component):
 
@@ -1839,8 +1831,31 @@ class Loads(Component):
 
 
     def linearize(Self, params, unknowns, resids):
+        diameter = params['rotor']
+
         J = {}
-        J['AEPobj', 'AEP'] = -1.
+        J['m', 'rotor'] = 3.*0.06*diameter**2+2.*11.72976061*diameter-407.3826374
+
+        J['mIxx', 'rotor'] = 5.*0.00747708*diameter**4-4.*0.6928725*diameter**3+3.*28.82739*diameter**2-2.*504.5127*diameter+3021.946
+        J['mIyy', 'rotor'] = -5.*0.000318379*diameter**4+4.*0.1597748*diameter**3-3.*4.548246*diameter**2+2.*45.46149*diameter-141.1889
+        J['mIzz', 'rotor'] = -5.*0.0003929626*diameter**4+4.*0.150502*diameter**3-3.*3.647634*diameter**2+2.*24.14188*diameter+10.99387
+        J['mIxy', 'rotor'] = 0.0
+        J['mIxz', 'rotor'] = 5.*0.002006358*diameter**4-4.*0.4540418*diameter**3+3.*30.57293*diameter**2-2.*666.8528*diameter+4595.203
+        J['mIyz', 'rotor'] = 0.0
+
+        J['Fx1', 'rotor'] = 2.*108.5329*diameter-3554.449
+        J['Fy1', 'rotor'] = 0.0
+        J['Fz1', 'rotor'] = -9.81*(3.*0.06*diameter**2+2.*11.72976061*diameter-407.3826374)
+        J['Mxx1', 'rotor'] = -3.*0.03850724*diameter**2+2.*180.3352*diameter+9179.51
+        J['Myy1', 'rotor'] = -3.*0.1077067*diameter**2+2.*46.49623*diameter-22155.54
+        J['Mzz1', 'rotor'] = -2.*16.37457*diameter-673.7798
+
+        J['Fx2', 'rotor'] = 2.*78.58158*diameter-2573.546
+        J['Fy2', 'rotor'] = 0.0
+        J['Fz2', 'rotor'] = -9.81*(3.*0.06*diameter**2+2.*11.72976061*diameter-407.3826374)
+        J['Mxx2', 'rotor'] = -2.*73.38825*diameter-4043.893
+        J['Myy2', 'rotor'] = -17989.42
+        J['Mzz2', 'rotor'] = 2.*6.955537*diameter+286.1839
 
         return J
 
@@ -1889,8 +1904,8 @@ def randomStart(nTurbs, xlow, xhigh, ylow, yhigh, rotor_diameter):
                 break
 
             for j in range(i):
-                print 'i: ', i
-                print 'j: ', j
+                # print 'i: ', i
+                # print 'j: ', j
                 if i == j:
                     good = 1
                 else:

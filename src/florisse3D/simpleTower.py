@@ -783,6 +783,7 @@ class freq(Component):
 
             # l = brentq(R, 0.0, 100., args=(m, L, I))
             l = root(R, 1.0, args=(m, L, I))['x'][0]
+            # print 'm: ', m
             omega = l**2*sqrt(E*I/(m*L**4))
             f = omega/(2*pi)  # divided by 2pi to give Hz
 
