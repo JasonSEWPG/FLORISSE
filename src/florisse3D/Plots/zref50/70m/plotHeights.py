@@ -9,17 +9,17 @@ if __name__=='__main__':
     H2 = 4.517121113778350860e+01
 
 
-    d1 = np.array([6.299999999999999822e+00, 5.271705687498021042e+00, 3.870000000000000107e+00])
+    d1 = np.array([6.299999999999999822e+00, 5.609485594937788200e+00, 3.870000000000000107e+00])
     d2 = np.array([3.870000000000000107e+00, 3.870000000000000107e+00, 3.870000000000000107e+00])
 
     diameter = 70.
     radius = diameter/2.
 
-    spacing = 1.3
+    spacing = 1.1
 
     r = 126.4/2.
 
-    x1 = 1.5*r
+    x1 = 1.25*r
     x2 = x1+126.4*spacing
 
     color = (0,0.6,0.8)
@@ -34,7 +34,7 @@ if __name__=='__main__':
 
     font = {'family' : 'normal',
         'weight' : 'normal',
-        'size'   : 15}
+        'size'   : 18}
 
     matplotlib.rc('font', **font)
 
@@ -43,7 +43,7 @@ if __name__=='__main__':
 
     px1 = np.array([x1-d1[0]/2,x1-d1[1]/2,x1-d1[2]/2,x1+d1[2]/2,x1+d1[1]/2,x1+d1[0]/2,x1-d1[0]/2])
     py1 = np.array([0,H1/2,H1-3.,H1-3.,H1/2,0,0])
-    px2 = np.array([x2-d1[0]/2,x2-d1[1]/2,x2-d1[2]/2,x2+d1[2]/2,x2+d1[1]/2,x2+d1[0]/2,x2-d1[0]/2])
+    px2 = np.array([x2-d2[0]/2,x2-d2[1]/2,x2-d2[2]/2,x2+d2[2]/2,x2+d2[1]/2,x2+d2[0]/2,x2-d2[0]/2])
     py2 = np.array([0,H2/2,H2-3.,H2-3.,H2/2,0,0])
     ax.plot(px1,py1,color='blue', linewidth=3)
     ax.plot(px2,py2,color='red', linewidth=3)
@@ -54,8 +54,8 @@ if __name__=='__main__':
     hub2 = plt.Circle((x2, H2), 3, color='red', fill=False, linewidth=2)
     ax.add_artist(hub1)
     ax.add_artist(hub2)
-    bladeX = np.array([3.,7.,10.,15.,20.,25.,30.,35.,30.,25.,20.,15.,10.,5.,3.,3.])
-    bladeY = np.array([0.,0.,0.8,1.5,1.7,1.9,2.1,2.3,2.4,2.4,2.4,2.4,2.4,2.4,2.4,0.])-1.5
+    bladeX = np.array([3.,7.,10.,15.,20.,25.,30.,35.,35.,30.,25.,20.,15.,10.,5.,3.,3.])
+    bladeY = np.array([0.,0.,0.8,1.5,1.55,1.6,1.7,1.75,2.9,2.9,2.9,2.9,2.9,2.9,2.9,2.9,0.])-1.5
 
     angle1 = -10.
 
@@ -92,14 +92,16 @@ if __name__=='__main__':
 
 
 
-    ax.set_xlim([0,x2+1.5*r])
-    ax.set_ylim([0,179])
+    ax.set_xlim([0,x2+1.25*r])
+    ax.set_ylim([0,190])
     plt.axes().set_aspect('equal')
 
-    ax.set_ylabel('Height (m)', fontsize=15)
+    ax.set_ylabel('Optimized Hub Height (m)')
     ax.set_xticks([x1,x2])
+    ax.set_yticks([25.,50.,75.,100.,125.,150.,175.])
     ax.set_xticklabels(['group 1', 'group 2'])
 
     # fig.savefig('optimizedHeights.pdf', transparent=True)
+    plt.title('Small Rotor Farm')
     plt.tight_layout()
     plt.show()
