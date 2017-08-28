@@ -1073,6 +1073,13 @@ class WindDirectionPower(Component):
         ddir_power_dCp = np.array([np.sum(dwtPower_dCp, 0)])
         ddir_power_drotorDiameter = np.array([np.sum(dwtPower_drotorDiameter, 0)])
 
+        dwtPower_dratedPower = np.zeros((nTurbines, nTurbines))
+        ddir_power_dratedPower = np.zeros((1,nTurbines))
+        for i in range(0, nTurbines):
+            if wtPower[i] == ratedPower[i]:
+                dwtPower_dratedPower[i][i] = 1.0
+                ddir_power_dratedPower[0][i] = 1.0
+
         # print 'DirectionPower Gradients:'
         # print 'ddir_power_dwtVelocity: ', ddir_power_dwtVelocity
         # print 'ddir_power_dCp: ', ddir_power_dCp
@@ -1085,10 +1092,12 @@ class WindDirectionPower(Component):
         J['wtPower%i' % direction_id, 'wtVelocity%i' % direction_id] = dwtPower_dwtVelocity
         J['wtPower%i' % direction_id, 'Cp'] = dwtPower_dCp
         J['wtPower%i' % direction_id, 'rotorDiameter'] = dwtPower_drotorDiameter
+        J['wtPower%i' % direction_id, 'ratedPower'] = dwtPower_dratedPower
 
         J['dir_power%i' % direction_id, 'wtVelocity%i' % direction_id] = ddir_power_dwtVelocity
         J['dir_power%i' % direction_id, 'Cp'] = ddir_power_dCp
         J['dir_power%i' % direction_id, 'rotorDiameter'] = ddir_power_drotorDiameter
+        J['dir_power%i' % direction_id, 'ratedPower'] = ddir_power_dratedPower
 
         return J
 

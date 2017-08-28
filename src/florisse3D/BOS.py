@@ -29,8 +29,10 @@ class transportationCost(Component):
         J['transportation_cost', 'cost'] = 1.
         return J
 
-
+"""
+"""
 class powerPerformanceCost(Component):
+    #TODO what to do for gradients on this?
     def __init__(self, nTurbines):
 
         super(powerPerformanceCost, self).__init__()
@@ -128,6 +130,13 @@ class accessRoadCost(Component):
 
         unknowns['access_road_cost'] = roads_cost
 
+    def linearize(self, params, unknowns, resids):
+        factor2 = 30.9
+        J = {}
+        J['access_road_cost','rotorDiameter'] = np.ones((1,self.nTurbines))*factor2*1.05
+
+        return J
+
 
 class foundationCost(Component):
     def __init__(self, nTurbines):
@@ -153,6 +162,7 @@ class foundationCost(Component):
         topMass = np.zeros(nTurbs)
         for i in range(int(nTurbs)):
             topMass[i] = 50. #TODO don't really know what this is: need to fix for sure
+        self.topMass = topMass
 
         cost = 0.
         for i in range(int(nTurbs)):
@@ -164,9 +174,17 @@ class foundationCost(Component):
 
     def linearize(self, params, unknowns, resids):
         nTurbs = self.nTurbines
+        topMass = self.topMass
 
         J = {}
-        J['foundation_cost', 'turbineZ'] = np.ones([1,nTurbs])*500.
+        J['foundation_cost', 'turbineZ'] = np.ones((1,nTurbs))*500.
+        J['foundation_cost', 'rotorDiameter'] = np.zeros((1,nTurbs))
+        J['foundation_cost', 'ratedPower'] = np.zeros((1,nTurbs))
+
+
+        for i in range(nTurbs):
+            J['foundation_cost', 'rotorDiameter'][0][i] = params['ratedPower'][i]*topMass[i]/1000.
+            J['foundation_cost', 'ratedPower'][0][i] = params['rotorDiameter'][i]*topMass[i]/1000.
         return J
 
 
@@ -189,8 +207,9 @@ class erectionCost(Component):
         weatherDelayDays = 5.
         craneBreakdowns = 1.
 
+        cost = np.zeros(nTurbs)
         for i in range(int(nTurbs)):
-            cost = (37.*ratedPower[i] + 27000.*nTurbs**(-0.42145) + (turbineZ[i]-80.)*500.)
+            cost[i] = (37.*ratedPower[i] + 27000.*nTurbs**(-0.42145) + (turbineZ[i]-80.)*500.)
 
         erection_cost = np.sum(cost)+ 20000.*weatherDelayDays + 35000.*craneBreakdowns + 181.*nTurbs + 1834.
 
@@ -201,6 +220,8 @@ class erectionCost(Component):
 
         J = {}
         J['erection_cost', 'turbineZ'] = np.ones([1, nTurbs])*500.
+        J['erection_cost', 'ratedPower'] = np.ones([1, nTurbs])*37.
+
         return J
 
 
@@ -232,6 +253,13 @@ class electircalMaterialsCost(Component):
 
         unknowns['electrical_materials_cost'] = elec_mat_cost
 
+    def linearize(self, params, unknowns, resids):
+        factor3 = 681.7
+        J = {}
+        J['electrical_materials_cost','rotorDiameter'] = np.ones((1,self.nTurbines))*factor3
+
+        return J
+
 
 class electircalInstallationCost(Component):
     def __init__(self, nTurbines):
@@ -259,6 +287,16 @@ class electircalInstallationCost(Component):
                 factor3*rockTrenchingLength/100.0)) + 10000.
 
         unknowns['electrical_installation_cost'] = elec_instal_cost
+
+    def linearize(self, params, unknowns, resids):
+        factor2 = 564.9
+        factor3 = 446.0
+        rockTrenchingLength = 10.
+        J = {}
+        J['electrical_installation_cost','rotorDiameter'] = np.ones((1,self.nTurbines))*\
+                factor2 + factor3*rockTrenchingLength/100.
+
+        return J
 
 
 class insuranceCost(Component):
@@ -292,9 +330,9 @@ class insuranceCost(Component):
         nTurbs = float(self.nTurbines)
 
         J = {}
-        J['insurance_cost', 'cost'] = (0.7+0.4+1.0)*37.5/(1543.209877*nTurbs)
-        #J['insurance_cost', 'cost'] = (0.7+0.4+1.0)*37.5/(5000.*nTurbs)
+        J['insurance_cost', 'cost'] = (0.7+0.4+1.0)*37.5/(np.sum(params['ratedPower']))
         J['insurance_cost', 'foundation_cost'] = 0.02
+        J['insurance_cost', 'ratedPower'] = np.ones((1,nTurbs))*-1.*(0.7+0.4+1.0)*37.58*params['cost']/(np.sum(params['ratedPower'])**2)
 
         return J
 

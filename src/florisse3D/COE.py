@@ -33,11 +33,13 @@ class rotorCostComponent(Component):
 
 
     def linearize(self, params, unknowns, resids):
+
         J = {}
         for i in range(self.nTurbines):
-            J['rotorCost','rotorCost%s'%i][i] = 1.
-
+            J['rotorCost', 'rotorCost%s'%i] = np.zeros(self.nTurbines)
+            J['rotorCost', 'rotorCost%s'%i][i] = 1.
         return J
+
 
 class nacelleCostComponent(Component):
     """
@@ -56,16 +58,17 @@ class nacelleCostComponent(Component):
 
     def solve_nonlinear(self, params, unknowns, resids):
 
-        rotorCost = np.zeros(self.nTurbines)
+        nacelleCost = np.zeros(self.nTurbines)
         for i in range(self.nTurbines):
-            rotorCost[i] = params['nacelleCost%s'%i]
+            nacelleCost[i] = params['nacelleCost%s'%i]
 
-        unknowns['nacelleCost'] = rotorCost
+        unknowns['nacelleCost'] = nacelleCost
 
 
     def linearize(self, params, unknowns, resids):
         J = {}
         for i in range(self.nTurbines):
+            J['nacelleCost','nacelleCost%s'%i] = np.zeros(self.nTurbines)
             J['nacelleCost','nacelleCost%s'%i][i] = 1.
 
         return J
@@ -125,9 +128,11 @@ class farmCost(Component):
         for i in range(nTurbs):
             J['cost','mass%s'%i] = tower_mass_cost_coefficient*4./3.
 
+        J['cost','rotorCost'] = np.zeros((1,self.nTurbines))
+        J['cost','nacelleCost'] = np.zeros((1,self.nTurbines))
         for i in range(nTurbs):
-            J['cost','rotorCost'][i] = 4./3.
-            J['cost','nacelleCost'][i] = 4./3.
+            J['cost','rotorCost'][0][i] = 4./3.
+            J['cost','nacelleCost'][0][i] = 4./3.
 
         return J
 
@@ -180,7 +185,7 @@ class COEComponent(Component):
         J['COE', 'cost'] = 1000.*fixed_charge_rate/AEP
         J['COE', 'AEP'] = -1000.*((BOS+cost)*fixed_charge_rate+AEP*O_M_coeff*(1.-tax_rate))/(AEP**2) + \
                             1000.*O_M_coeff*(1.-tax_rate)/AEP
-        J['BOS', 'cost'] = 1000.*fixed_charge_rate/AEP
+        J['COE', 'BOS'] = 1000.*fixed_charge_rate/AEP
 
 
         return J
@@ -190,7 +195,7 @@ class COEGroup(Group):
     """
     Group containing components ot calculate COEGroup
     """
-    def __init__(self, nTurbines, nGroups):
+    def __init__(self, nTurbines, nGroups, nDirections, datasize):
 
         super(COEGroup, self).__init__()
 
@@ -200,6 +205,9 @@ class COEGroup(Group):
             self.add('nrel_csm_tcc_2015%s'%i, nrel_csm_tcc_2015(), promotes=['turbine_class','blade_has_carbon','bearing_number'])
         self.add('rotorCostComponent', rotorCostComponent(nTurbines), promotes=['*'])
         self.add('BOSgroup', BOSgroup(nTurbines), promotes=['*'])
+        self.add('AEPGroup', AEPGroup(nTurbines, nDirections=nDirections,
+                    use_rotor_components=False, datasize=datasize, differentiable=True,
+                    optimizingLayout=False, nSamples=0), promotes=['*'])
 
         for i in range(nTurbines):
             self.connect('nrel_csm_tcc_2015%s.rotor_cost'%i,'rotorCost%s'%i)

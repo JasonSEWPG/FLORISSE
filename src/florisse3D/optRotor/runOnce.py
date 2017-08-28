@@ -32,12 +32,12 @@ if __name__ == '__main__':
     air_density = 1.1716    # kg/m^3
 
 
-    windSpeeds, windFrequencies, windDirections, nDirections = amaliaWind()
+    # windSpeeds, windFrequencies, windDirections, nDirections = amaliaWind()
 
-    # windSpeeds = np.array([12.])
-    # windFrequencies = np.array([1.])
-    # windDirections = np.array([0.])
-    # nDirections = 1
+    windSpeeds = np.array([12.])
+    windFrequencies = np.array([1.])
+    windDirections = np.array([0.])
+    nDirections = 1
 
 
     axialInduction = np.zeros(nTurbs)
@@ -75,89 +75,89 @@ if __name__ == '__main__':
 
 
 
-    """Define tower structural properties"""
-    # --- geometry ---
+    # """Define tower structural properties"""
+    # # --- geometry ---
     n = 15
-
-    """same as for NREL 5MW"""
+    #
+    # """same as for NREL 5MW"""
     L_reinforced = 30.0*np.ones(n)  # [m] buckling length
     Toweryaw = 0.0
-
-    # --- material props ---
+    #
+    # # --- material props ---
     E = 210.e9*np.ones(n)
     G = 80.8e9*np.ones(n)
     rho = 8500.0*np.ones(n)
     sigma_y = 450.0e6*np.ones(n)
-
-    # --- spring reaction data.  Use float('inf') for rigid constraints. ---
-    kidx = np.array([0], dtype=int)  # applied at base
-    kx = np.array([float('inf')])
-    ky = np.array([float('inf')])
-    kz = np.array([float('inf')])
-    ktx = np.array([float('inf')])
-    kty = np.array([float('inf')])
-    ktz = np.array([float('inf')])
-    nK = len(kidx)
-
-    """scale with rotor diameter"""
-    # --- extra mass ----
-    midx = np.array([n-1], dtype=int)  # RNA mass at top
-    # m = np.array([285598.8])*(rotor_diameter/126.4)**3
-    m = np.array([78055.827])
-    mIxx = np.array([3.5622774377E+006])
-    mIyy = np.array([1.9539222007E+006])
-    mIzz = np.array([1.821096074E+006])
-    mIxy = np.array([0.00000000e+00])
-    mIxz = np.array([1.1141296293E+004])
-    mIyz = np.array([0.00000000e+00])
-    # mrhox = np.array([-1.13197635]) # Does not change with rotor_diameter
+    #
+    # # --- spring reaction data.  Use float('inf') for rigid constraints. ---
+    # kidx = np.array([0], dtype=int)  # applied at base
+    # kx = np.array([float('inf')])
+    # ky = np.array([float('inf')])
+    # kz = np.array([float('inf')])
+    # ktx = np.array([float('inf')])
+    # kty = np.array([float('inf')])
+    # ktz = np.array([float('inf')])
+    # nK = len(kidx)
+    #
+    # """scale with rotor diameter"""
+    # # --- extra mass ----
+    # midx = np.array([n-1], dtype=int)  # RNA mass at top
+    # # m = np.array([285598.8])*(rotor_diameter/126.4)**3
+    # m = np.array([78055.827])
+    # mIxx = np.array([3.5622774377E+006])
+    # mIyy = np.array([1.9539222007E+006])
+    # mIzz = np.array([1.821096074E+006])
+    # mIxy = np.array([0.00000000e+00])
+    # mIxz = np.array([1.1141296293E+004])
+    # mIyz = np.array([0.00000000e+00])
+    # # mrhox = np.array([-1.13197635]) # Does not change with rotor_diameter
     mrhox = np.array([-0.1449])
-    mrhoy = np.array([0.])
-    mrhoz = np.array([1.389])
-    nMass = len(midx)
-    addGravityLoadForExtraMass = True
-    # -----------
-
-    # --- wind ---
-    wind_zref = 90.0
-    wind_z0 = 0.0
-    # ---------------
-
-    # if addGravityLoadForExtraMass=True be sure not to double count by adding those force here also
-    # # --- loading case 1: max Thrust ---
+    # mrhoy = np.array([0.])
+    # mrhoz = np.array([1.389])
+    # nMass = len(midx)
+    # addGravityLoadForExtraMass = True
+    # # -----------
+    #
+    # # --- wind ---
+    # wind_zref = 90.0
+    # wind_z0 = 0.0
+    # # ---------------
+    #
+    # # if addGravityLoadForExtraMass=True be sure not to double count by adding those force here also
+    # # # --- loading case 1: max Thrust ---
     wind_Uref1 = 11.73732
-    plidx1 = np.array([n-1], dtype=int)  # at  top
-    Fx1 = np.array([283000.])
-    Fy1 = np.array([0.])
-    Fz1 = np.array([-765727.66])
-    Mxx1 = np.array([1513000.])
-    Myy1 = np.array([-1360000.])
-    Mzz1 = np.array([-127400.])
-    nPL = len(plidx1)
-    # # ---------------
-
-    # # --- loading case 2: max wind speed ---
+    # plidx1 = np.array([n-1], dtype=int)  # at  top
+    # Fx1 = np.array([283000.])
+    # Fy1 = np.array([0.])
+    # Fz1 = np.array([-765727.66])
+    # Mxx1 = np.array([1513000.])
+    # Myy1 = np.array([-1360000.])
+    # Mzz1 = np.array([-127400.])
+    # nPL = len(plidx1)
+    # # # ---------------
+    #
+    # # # --- loading case 2: max wind speed ---
     wind_Uref2 = 70.0
-    plidx2 = np.array([n-1], dtype=int)  # at  top
-    Fx2 = np.array([204901.5477])
-    Fy2 = np.array([0.])
-    Fz2 = np.array([-832427.12368949])
-    Mxx2 = np.array([-642674.9329])
-    Myy2 = np.array([-1507872])
-    Mzz2 = np.array([54115.])
-    # # ---------------
-
-    # --- safety factors ---
+    # plidx2 = np.array([n-1], dtype=int)  # at  top
+    # Fx2 = np.array([204901.5477])
+    # Fy2 = np.array([0.])
+    # Fz2 = np.array([-832427.12368949])
+    # Mxx2 = np.array([-642674.9329])
+    # Myy2 = np.array([-1507872])
+    # Mzz2 = np.array([54115.])
+    # # # ---------------
+    #
+    # # --- safety factors ---
     gamma_f = 1.35
     gamma_m = 1.3
     gamma_n = 1.0
     gamma_b = 1.1
-    # ---------------
-
-    # --- constraints ---
-    min_d_to_t = 120.0
-    min_taper = 0.4
-    # ---------------
+    # # ---------------
+    #
+    # # --- constraints ---
+    # min_d_to_t = 120.0
+    # min_taper = 0.4
+    # # ---------------
 
     nPoints = 3
     nFull = n
@@ -193,10 +193,7 @@ if __name__ == '__main__':
     root.add('getRating', getRating(nTurbs), promotes=['*'])
     for i in range(nGroups):
         root.add('Loads%s'%i, Loads())
-    root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
-                use_rotor_components=False, datasize=datasize, differentiable=True,
-                optimizingLayout=False, nSamples=0), promotes=['*'])
-    root.add('COEGroup', COEGroup(nTurbs, nGroups), promotes=['*'])
+    root.add('COEGroup', COEGroup(nTurbs, nGroups, nDirections, datasize), promotes=['*'])
 
 
 
@@ -221,7 +218,7 @@ if __name__ == '__main__':
     for j in range(nTurbs):
         root.connect('rotor_diameters%s'%j,'nrel_csm_tcc_2015%s.rotor_diameter'%j)
         root.connect('rated_powers%s'%j,'nrel_csm_tcc_2015%s.machine_rating'%j)
-        
+
     for i in range(nGroups):
         root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
         root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
