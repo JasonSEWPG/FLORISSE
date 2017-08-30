@@ -1,7 +1,6 @@
 import numpy as np
 from math import pi, log
 import time
-from datetime import datetime
 from openmdao.api import Group, Component, Problem, ScipyGMRES, IndepVarComp
 #, pyOptSparseDriver
 from FLORISSE3D.floris import AEPGroup
