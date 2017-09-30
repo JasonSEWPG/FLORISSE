@@ -6,27 +6,36 @@ from openmdao.api import Group, Component, Problem, ScipyGMRES, IndepVarComp
 from FLORISSE3D.floris import AEPGroup
 from FLORISSE3D.BOS import BOSgroup
 from turbine_costsse.NEWnrel_csm_tcc_2015 import nrel_csm_tcc_2015
+from turbine_costsse.NEWnrel_csm_tcc_2015 import cost_group_variableRotorStudy
+from FLORISSE3D.simpleTower import calcMass, TowerDiscretization
 
 class rotorCostComponent(Component):
     """
     Component to calculate the cost of the wind farm
     """
 
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbines, nGroups):
 
         super(rotorCostComponent, self).__init__()
 
         self.nTurbines = nTurbines
-        for i in range(nTurbines):
+        self.nGroups = nGroups
+        self.add_param('hGroup', np.zeros(nTurbines), desc='An array indicating which turbines are of each height')
+        for i in range(nGroups):
             self.add_param('rotorCost%s'%i, 0.0, desc='costs of the rotors')
 
         self.add_output('rotorCost', np.zeros(nTurbines), desc='Array cost of rotors')
 
     def solve_nonlinear(self, params, unknowns, resids):
+        nGroups = self.nGroups
+        nTurbs = self.nTurbines
+        hGroup = params['hGroup']
 
         rotorCost = np.zeros(self.nTurbines)
-        for i in range(self.nTurbines):
-            rotorCost[i] = params['rotorCost%s'%i]
+        for j in range(nGroups):
+            for k in range(nTurbs):
+                if j == hGroup[k]:
+                    rotorCost[k] = params['rotorCost%s'%j]
 
         unknowns['rotorCost'] = rotorCost
 
@@ -34,9 +43,12 @@ class rotorCostComponent(Component):
     def linearize(self, params, unknowns, resids):
 
         J = {}
-        for i in range(self.nTurbines):
-            J['rotorCost', 'rotorCost%s'%i] = np.zeros(self.nTurbines)
-            J['rotorCost', 'rotorCost%s'%i][i] = 1.
+
+        for j in range(self.nGroups):
+            J['rotorCost','rotorCost%s'%j] = np.zeros(self.nTurbines)
+            for k in range(self.nTurbines):
+                if j == params['hGroup'][k]:
+                    J['rotorCost','rotorCost%s'%j][k] = 1.
         return J
 
 
@@ -45,31 +57,41 @@ class nacelleCostComponent(Component):
     Component to calculate the cost of the wind farm
     """
 
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbines, nGroups):
 
         super(nacelleCostComponent, self).__init__()
 
         self.nTurbines = nTurbines
+        self.nGroups = nGroups
+        self.add_param('hGroup', np.zeros(nTurbines), desc='An array indicating which turbines are of each height')
         for i in range(nTurbines):
             self.add_param('nacelleCost%s'%i, 0.0, desc='costs of the nacelles')
 
         self.add_output('nacelleCost', np.zeros(nTurbines), desc='Array cost of nacelles')
 
     def solve_nonlinear(self, params, unknowns, resids):
+        nGroups = self.nGroups
+        nTurbs = self.nTurbines
+        hGroup = params['hGroup']
 
         nacelleCost = np.zeros(self.nTurbines)
-        for i in range(self.nTurbines):
-            nacelleCost[i] = params['nacelleCost%s'%i]
+        for j in range(nGroups):
+            for k in range(nTurbs):
+                if j == hGroup[k]:
+                    nacelleCost[k] = params['nacelleCost%s'%j]
 
         unknowns['nacelleCost'] = nacelleCost
 
 
     def linearize(self, params, unknowns, resids):
-        J = {}
-        for i in range(self.nTurbines):
-            J['nacelleCost','nacelleCost%s'%i] = np.zeros(self.nTurbines)
-            J['nacelleCost','nacelleCost%s'%i][i] = 1.
 
+        J = {}
+
+        for j in range(self.nGroups):
+            J['nacelleCost','nacelleCost%s'%j] = np.zeros(self.nTurbines)
+            for k in range(self.nTurbines):
+                if j == params['hGroup'][k]:
+                    J['nacelleCost','nacelleCost%s'%j][k] = 1.
         return J
 
 
@@ -79,12 +101,14 @@ class farmCost(Component):
     #TODO check gradients
     """
 
-    def __init__(self, nTurbines):
+    def __init__(self, nTurbines, nGroups):
 
         super(farmCost, self).__init__()
 
         self.nTurbines = nTurbines
-        for i in range(nTurbines):
+        self.nGroups = nGroups
+        self.add_param('hGroup', np.zeros(nTurbines), desc='An array indicating which turbines are of each height')
+        for i in range(nGroups):
             self.add_param('mass%s'%i, 0.0, units='kg',
                         desc='mass of each tower')
         self.add_param('rotorCost', np.zeros(nTurbines), desc='costs of the rotors')
@@ -95,6 +119,8 @@ class farmCost(Component):
     def solve_nonlinear(self, params, unknowns, resids):
 
         nTurbines = self.nTurbines
+        nGroups = self.nGroups
+        hGroup = params['hGroup']
 
         """these are for the NREL 5 MW reference turbine"""
         # nacelle_cost = 2446465.19*3/4.#turbine_costsse_2015.py run
@@ -110,9 +136,20 @@ class farmCost(Component):
         tower_mass_cost_coefficient = 3.08 #$/kg
         self.tower_mass_cost_coefficient = tower_mass_cost_coefficient
 
+        tower_mass = np.zeros(nTurbines)
+        for j in range(nGroups):
+            for k in range(nTurbines):
+                if j == hGroup[k]:
+                    tower_mass[k] = params['mass%s'%j]
+
         tower_cost = np.zeros(nTurbines)
         for i in range(nTurbines):
-            tower_cost[i] = tower_mass_cost_coefficient*params['mass%s'%i] #new cost from Katherine
+            tower_cost[i] = tower_mass_cost_coefficient*tower_mass[i] #new cost from Katherine
+
+
+        # print 'ROTOR COST: ', rotor_cost
+        # print 'NACELLE COST: ', nacelle_cost
+        # print 'TOWER COST: ', tower_cost
 
         parts_cost_farm = nacelle_cost + rotor_cost + np.sum(tower_cost) #parts cost for the entire wind farm
         turbine_multiplier = 4./3.
@@ -124,8 +161,14 @@ class farmCost(Component):
         tower_mass_cost_coefficient = self.tower_mass_cost_coefficient
 
         J = {}
-        for i in range(nTurbs):
-            J['cost','mass%s'%i] = tower_mass_cost_coefficient*4./3.
+        group_count = np.zeros(self.nGroups)
+        for i in range(self.nGroups):
+            for j in range(nTurbs):
+                if params['hGroup'][j]==i:
+                    group_count[i] += 1
+
+        for i in range(self.nGroups):
+            J['cost','mass%s'%i] = group_count[i]*tower_mass_cost_coefficient*4./3.
 
         J['cost','rotorCost'] = np.zeros((1,self.nTurbines))
         J['cost','nacelleCost'] = np.zeros((1,self.nTurbines))
@@ -194,22 +237,30 @@ class COEGroup(Group):
     """
     Group containing components ot calculate COEGroup
     """
-    def __init__(self, nTurbines, nGroups, nDirections, datasize):
+    def __init__(self, nTurbines, nGroups, nDirections, nPoints, nFull):
 
         super(COEGroup, self).__init__()
 
-        self.add('farmCost', farmCost(nTurbines), promotes=['*'])
+        self.add('farmCost', farmCost(nTurbines, nGroups), promotes=['*'])
         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
-        for i in range(nTurbines):
-            self.add('nrel_csm_tcc_2015%s'%i, nrel_csm_tcc_2015(), promotes=['turbine_class','blade_has_carbon','bearing_number'])
-        self.add('rotorCostComponent', rotorCostComponent(nTurbines), promotes=['*'])
+        for i in range(nGroups):
+            self.add('rotor_nacelle_costs%s'%i, cost_group_variableRotorStudy(), promotes=['bearing_number'])#, promotes=['turbine_class','blade_has_carbon','bearing_number'])
+            self.add('calcMass%s'%i, calcMass(nFull))
+            self.add('TowerDiscretization%s'%i, TowerDiscretization(nPoints, nFull))
+        self.add('rotorCostComponent', rotorCostComponent(nTurbines, nGroups), promotes=['*'])
+        self.add('nacelleCostComponent', nacelleCostComponent(nTurbines, nGroups), promotes=['*'])
         self.add('BOSgroup', BOSgroup(nTurbines), promotes=['*'])
         self.add('AEPGroup', AEPGroup(nTurbines, nDirections=nDirections,
-                    use_rotor_components=False, datasize=datasize, differentiable=True,
+                    use_rotor_components=False, differentiable=True,
                     optimizingLayout=False, nSamples=0), promotes=['*'])
 
-        for i in range(nTurbines):
-            self.connect('nrel_csm_tcc_2015%s.rotor_cost'%i,'rotorCost%s'%i)
+        for i in range(nGroups):
+            self.connect('rotor_nacelle_costs%s.rotor_cost'%i,'rotorCost%s'%i)
+            self.connect('rotor_nacelle_costs%s.nacelle_cost'%i,'nacelleCost%s'%i)
+            self.connect('TowerDiscretization%s.z_full'%i,'calcMass%s.z_full'%i)
+            self.connect('TowerDiscretization%s.d_full'%i,'calcMass%s.d_full'%i)
+            self.connect('TowerDiscretization%s.t_full'%i,'calcMass%s.t_full'%i)
+            self.connect('calcMass%s.mass'%i,'mass%s'%i)
 
 
 if __name__=="__main__":
@@ -260,7 +311,7 @@ if __name__=="__main__":
 
     mass = np.array([100000.])
     nTurbines = len(mass)
-    root.add('farmCost', farmCost(nTurbines), promotes=['*'])
+    root.add('COEGroup', farmCost(nTurbines), promotes=['*'])
 
     prob.setup()
 

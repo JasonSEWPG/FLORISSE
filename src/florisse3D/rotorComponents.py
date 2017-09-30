@@ -45,19 +45,19 @@ class getRating(Component):
         return J
 
 
-class frequencyConstraint(Component):
-    """
-    Find the frequency coinstraint as a function of rotor diameter
-    """
-    def __init__(self):
-
-        super(frequencyConstraint, self).__init__()
-
-        self.add_param('diameter', 126.4, desc='rotor diameter')
-
-        self.add_output('maxFreq', 0.0, desc='frequency constraint')
-
-    def solve_nonlinear(self,params,unknowns,resids):
+# class frequencyConstraint(Component):
+#     """
+#     Find the frequency coinstraint as a function of rotor diameter
+#     """
+#     def __init__(self):
+#
+#         super(frequencyConstraint, self).__init__()
+#
+#         self.add_param('diameter', 126.4, desc='rotor diameter')
+#
+#         self.add_output('maxFreq', 0.0, desc='frequency constraint')
+#
+#     def solve_nonlinear(self,params,unknowns,resids):
 
 
 if __name__=="__main__":

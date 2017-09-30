@@ -1,5 +1,5 @@
 from openmdao.api import Problem, Group
-from florisse.floris import AEPGroup
+from FLORISSE3D.floris import AEPGroup
 
 import time
 import numpy as np
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     wind_frequency = 1.    # probability of wind in this direction at this speed
 
     # set up problem
-    prob = Problem(root=AEPGroup(nTurbs, differentiable=True, use_rotor_components=False))
+    prob = Problem(root=AEPGroup(nTurbs, 1))#differentiable=True, use_rotor_components=False))
 
     # initialize problem
     prob.setup()
@@ -62,6 +62,7 @@ if __name__ == "__main__":
     prob['Ct_in'] = Ct
     prob['Cp_in'] = Cp
     prob['floris_params:cos_spread'] = 1E12         # turns off cosine spread (just needs to be very large)
+    prob['ratedPower'] = np.ones(nTurbs)*5000.
     # prob['floris_params:useWakeAngle'] = True
     # run the problem
     print 'start FLORIS run'
@@ -81,5 +82,3 @@ if __name__ == "__main__":
     print 'Turbine powers (kW) = ', (prob['wtPower0'])
     print 'wind farm power (kW): %s' % (prob['dir_power0'])
     print 'wind farm AEP for this direction and speed (kWh): %s' % prob['AEP']
-
-

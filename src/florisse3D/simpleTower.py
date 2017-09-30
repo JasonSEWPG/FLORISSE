@@ -11,6 +11,29 @@ from commonse.utilities import interp_with_deriv
 from math import pi
 
 
+class topMassAdder(Component):
+    def __init__(self):
+
+        super(topMassAdder, self).__init__()
+
+        self.add_param('rotor_mass', 0.0, units='m', desc='rotor mass')
+        self.add_param('nacelle_mass', 0.0, units='m', desc='nacelle mass')
+
+        self.add_output('m', np.array([0.]), desc='top mass')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        m = params['rotor_mass']+params['nacelle_mass']
+        unknowns['m'] = np.array([m])
+
+    def linearize(self, params, unknowns, resids):
+
+        J = {}
+        J['m','rotor_mass'] = np.array([1.])
+        J['m','nacelle_mass'] = np.array([1.])
+
+        return J
+
+
 class Tower(Group):
     """group to calculate mass, frequency, stresses, and buckling for a tower"""
 
@@ -31,6 +54,7 @@ class Tower(Group):
         self.add('m_L', m_L(), promotes=['*'])
         self.add('freq', freq(nFull), promotes=['*'])
         self.add('windLoads', TowerWindDrag(nFull))
+        self.add('topMassAdder', topMassAdder(), promotes=['*'])
 
         self.connect('towerSpeeds', 'windLoads.U')
         self.connect('z_full', 'windLoads.z')
@@ -301,9 +325,6 @@ class hoopStressEurocode(Component):
         self.add_param('t_full', np.zeros(nFull), desc='thickness at each point')
         self.add_param('L_reinforced', np.zeros(nFull), units='m')
         self.add_param('q_dyn', np.zeros(nFull), desc='dynamic pressure at each point')
-        #TODO Need to fix these, these are unnecessary: just used in gradients
-        self.add_param('rhoAir', 1.225, units='kg/m**3')
-        self.add_param('Vel', 0.0)
 
         self.add_output('hoop_stress', np.zeros(nFull), desc='hoop stress at each point')
 
@@ -321,6 +342,8 @@ class hoopStressEurocode(Component):
         k_w = 0.46*(1.0 + 0.1*np.sqrt(C_theta/omega*r/t))
         Peq = k_w*q_dyn
         hoop_stress = -Peq*r/t
+        dhoop_dq = -k_w*r/t
+        self.dhoop_dq = dhoop_dq
 
         unknowns['hoop_stress'] = hoop_stress
 
@@ -332,8 +355,6 @@ class hoopStressEurocode(Component):
         d = params['d_full']
         t = params['t_full']
         L_reinforced = params['L_reinforced']
-        rho = params['rhoAir']
-        Vel = params['Vel']
         q_dyn = params['q_dyn']
 
         C_theta = 1.5
@@ -345,27 +366,6 @@ class hoopStressEurocode(Component):
         J = {}
         dhoop_dD_full = np.zeros((nFull, nFull))
         dhoop_dT_full = np.zeros((nFull, nFull))
-        # for i in range(nFull):
-        #     di = d[i]
-        #     ti = t[i]
-        #     ri = (di/2.-ti/2.)
-        #     L = L_reinforced[i]
-
-            #dHoop_dT
-            # a1 = -0.0140846*ri*Vel**2*rho/(ti*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti)))
-            # a2 = (di/2.-ti)*(ri)/(2.*L*ti*np.sqrt(ri*ti))
-            # a3 = ri*np.sqrt(ri*ti)/(L*ti**2)
-            # a4 = np.sqrt(ri*ti)/(2.*L*ti)
-            #
-            # a5 = 0.23*ri*Vel**2*rho/(ti**2)
-            # a6 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
-            #
-            # a7 = 0.115*Vel**2*rho/ti
-            # a8 = 1.+0.1*np.sqrt(1.5)*np.sqrt(ri*np.sqrt(ri*ti)/(L*ti))
-            # dhoop_dT_full[i] = a1*(a2-a3-a4) + a5*a6 + a7*a8
-        # l = 0.0140846*q_dyn*r/(omega*np.sqrt(r/(omega*t))*t**2)
-        # r = 0.23*q_dyn/t*(1.+0.122474*np.sqrt(r/(omega*t)))
-        # der = -l-r
 
         d1 = 0.023*q_dyn*r
         d2 = (0.25*C_theta*r/(L_reinforced*np.sqrt(r*t)))+(0.5*C_theta*np.sqrt(r*t)/(L_reinforced*t))
@@ -388,11 +388,32 @@ class hoopStressEurocode(Component):
         for i in range(nFull):
             dhoop_dD_full[i][i] = der_d[i]
             dhoop_dT_full[i][i] = der_t[i]
+
+        dhoop_dq = np.zeros((nFull,nFull))
+        for i in range(nFull):
+            dhoop_dq[i][i] = self.dhoop_dq[i]
         J['hoop_stress', 'd_full'] = dhoop_dD_full
         J['hoop_stress', 't_full'] = dhoop_dT_full
+        J['hoop_stress', 'q_dyn'] = dhoop_dq
 
         return J
 
+
+class Fz_comp(Component):
+    """Fz from gravity"""
+
+    def __init__(self):
+
+        super(Fz_comp, self).__init__()
+        self.add_param('m', np.array([0.]), units='kg', desc='mass at top')
+        self.add_output('Fz', 0.0, units='kg', desc='z force')
+
+    def solve_nonlinear(self,params,unknowns,resids):
+        unknowns['Fz'] = -9.81*float(params['m'])
+
+    def linearize(self,params,unknowns,resids):
+        J = {}
+        J['Fz','m'] = -9.81
 
 class axial_and_shear(Component):
     """axial stress at each point"""
@@ -435,19 +456,25 @@ class axial_and_shear(Component):
         rho = params['rho']
         mrhox = params['mrhox']
 
+        # Fz = m * -9.81
+
+        # print 'Fz: ', Fz
+        # print 'm: ', m
+
         axial_stress, shear_stress = _axialShear.axial_and_shear(d_full, t_full, z_full, Fx, Fy, Fz, qx, qy, \
                                     Mxx, Myy, rho, mrhox, m)
 
         unknowns['axial_stress'] = axial_stress
         unknowns['shear_stress'] = shear_stress
 
+    #TODO need gradients wrt other inputs (m, Fx, Mxx, Myy, qx)
     def linearize(self, params, unknowns, resids):
 
         m = params['m']
         d_full = params['d_full']
         t_full = params['t_full']
         z_full = params['z_full']
-        Fz = params['Fz']
+        Fz = m * -9.81
         Fx = params['Fx']
         Fy = params['Fy']
         Mxx = params['Mxx']
@@ -462,65 +489,203 @@ class axial_and_shear(Component):
         dd = np.eye(nFull)
         td = np.zeros((nFull, nFull))
         zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
         qxd = np.zeros((nFull, nFull))
         qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
         axial_stress,da_dd,shear_stress,ds_dd = _axialShear.axial_and_shear_dv(d_full, \
-                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
-                            Myy,rho,mrhox,m)
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
 
         #wrt thickness
         dd = np.zeros((nFull, nFull))
         td = np.eye(nFull)
         zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
         qxd = np.zeros((nFull, nFull))
         qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
         axial_stress,da_dt,shear_stress,ds_dt = _axialShear.axial_and_shear_dv(d_full, \
-                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
-                            Myy,rho,mrhox,m)
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
 
         #wrt z
         dd = np.zeros((nFull, nFull))
         td = np.zeros((nFull, nFull))
         zd = np.eye(nFull)
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
         qxd = np.zeros((nFull, nFull))
         qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
         axial_stress,da_dz,shear_stress,ds_dz = _axialShear.axial_and_shear_dv(d_full, \
-                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
-                            Myy,rho,mrhox,m)
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt Fx
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.ones(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
+        axial_stress,da_dFx,shear_stress,ds_dFx = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt Fy
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.ones(nFull)
+        Fzd = np.zeros(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
+        axial_stress,da_dFy,shear_stress,ds_dFy = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt Fz
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.ones(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
+        axial_stress,da_dFz,shear_stress,ds_dFz = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
 
         #wrt qx (wind loads in x)
         dd = np.zeros((nFull, nFull))
         td = np.zeros((nFull, nFull))
         zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
         qxd = np.eye(nFull)
         qyd = np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
         axial_stress,da_dqx,shear_stress,ds_dqx = _axialShear.axial_and_shear_dv(d_full, \
-                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
-                            Myy,rho,mrhox,m)
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
 
         #wrt qy (wind loads in y)
         dd = np.zeros((nFull, nFull))
         td = np.zeros((nFull, nFull))
         zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
         qxd = np.zeros((nFull, nFull))
         qyd = np.eye(nFull)
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
         axial_stress,da_dqy,shear_stress,ds_dqy = _axialShear.axial_and_shear_dv(d_full, \
-                            dd,t_full,td,z_full,zd,Fx,Fy,Fz,qx,qxd,qy,qyd,Mxx,   \
-                            Myy,rho,mrhox,m)
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt Mxx
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd =  np.zeros((nFull, nFull))
+        Mxxd = np.ones(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.zeros(nFull)
+        axial_stress,da_dMxx,shear_stress,ds_dMxx = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt Myy
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd =  np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.ones(nFull)
+        md = np.zeros(nFull)
+        axial_stress,da_dMyy,shear_stress,ds_dMyy = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
+
+        #wrt m
+        dd = np.zeros((nFull, nFull))
+        td = np.zeros((nFull, nFull))
+        zd = np.zeros((nFull, nFull))
+        Fxd = np.zeros(nFull)
+        Fyd = np.zeros(nFull)
+        Fzd = np.zeros(nFull)
+        qxd = np.zeros((nFull, nFull))
+        qyd =  np.zeros((nFull, nFull))
+        Mxxd = np.zeros(nFull)
+        Myyd = np.zeros(nFull)
+        md = np.ones(nFull)
+        axial_stress,da_dm,shear_stress,ds_dm = _axialShear.axial_and_shear_dv(d_full, \
+                            dd,t_full,td,z_full,zd,Fx,Fxd,Fy,Fyd,Fz,Fzd,qx,qxd,qy,qyd,Mxx,   \
+                            Mxxd,Myy,Myyd,rho,mrhox,m,md)
 
         J = {}
 
         J['axial_stress', 'd_full'] = da_dd.T
         J['axial_stress', 't_full'] = da_dt.T
         J['axial_stress', 'z_full'] = da_dz.T
+        J['axial_stress', 'Fx'] = np.diagonal(da_dFx)
+        J['axial_stress', 'Fy'] = np.diagonal(da_dFy)
+        J['axial_stress', 'Fz'] = np.diagonal(da_dFz)
         J['axial_stress', 'qx'] = da_dqx.T
         J['axial_stress', 'qy'] = da_dqy.T
+        J['axial_stress', 'Mxx'] = np.diagonal(da_dMxx)
+        J['axial_stress', 'Myy'] = np.diagonal(da_dMyy)
+        J['axial_stress', 'm'] = np.diagonal(da_dm)
 
         J['shear_stress', 'd_full'] = ds_dd.T
         J['shear_stress', 't_full'] = ds_dt.T
         J['shear_stress', 'z_full'] = ds_dz.T
+        J['shear_stress', 'Fx'] = np.diagonal(ds_dFx)
+        J['shear_stress', 'Fy'] = np.diagonal(ds_dFy)
+        J['shear_stress', 'Fz'] = np.diagonal(ds_dFz)
         J['shear_stress', 'qx'] = ds_dqx.T
         J['shear_stress', 'qy'] = ds_dqy.T
+        J['shear_stress', 'Mxx'] = np.diagonal(ds_dMxx)
+        J['shear_stress', 'Myy'] = np.diagonal(ds_dMyy)
+        J['shear_stress', 'm'] = np.diagonal(ds_dm)
 
         return J
 
@@ -645,6 +810,7 @@ class shellBucklingGroup(Group):
 
         super(shellBucklingGroup, self).__init__()
 
+        self.add('Fz_comp', Fz_comp(), promotes=['*'])
         self.add('hoopStressEurocode', hoopStressEurocode(nFull), promotes=['*'])
         self.add('axial_and_shear', axial_and_shear(nFull), promotes=['*'])
         self.add('shellBuckling', shellBuckling(nFull), promotes=['*'])
@@ -799,6 +965,14 @@ class freq(Component):
                 - 2*l**4*Mt*It/(m**3*L**4)*(1 - cl*chl)
             prpl = -2*It*l**3*cos(l)*cosh(l)/(L**3*m) - 3*It*l**2*(sin(l)*cosh(l) + cos(l)*sinh(l))/(L**3*m) + It*Mt*l**4*(sin(l)*cosh(l) - cos(l)*sinh(l))/(L**4*m**2) + 4*It*Mt*l**3*(-cos(l)*cosh(l) + 1)/(L**4*m**2) - sin(l)*cosh(l) + cos(l)*sinh(l) - 2*Mt*l*sin(l)*sinh(l)/(L*m) + Mt*(-sin(l)*cosh(l) + cos(l)*sinh(l))/(L*m)
 
+            """PJ adding this stuff"""
+            prpMt = It*l**4*(1.-cos(l)*cosh(l))/(L**4*m**2) \
+                + l*(-cosh(l)*sin(l)+cos(l)*sinh(l))/(L*m)
+            prpIt = l**4*Mt*(1.-cos(l)*cosh(l))/(L**4*m**2) \
+                - l**3*(cosh(l)*sin(l)+cos(l)*sinh(l))/(L**3*m)
+            """"""
+
+
             pfpL = -omega/(pi*L)
             prpL = -l*Mt/(m*L**2)*(cl*shl - sl*chl) \
                 + 3*l**3*It/(m*L**4)*(chl*sl + shl*cl) \
@@ -811,7 +985,12 @@ class freq(Component):
             dfdL = pfpL - pfpl*prpL/prpl
             dfdI = pfpI
 
-            dfdx = np.array([dfdm, dfdL, dfdI])
+            """PJ adding this stuff"""
+            dfdMt = -pfpl*prpMt/prpl
+            dfdIt = -pfpl*prpIt/prpl
+            """"""
+
+            dfdx = np.array([dfdm, dfdL, dfdI, dfdMt, dfdIt])
 
             return f, dfdx
 
@@ -828,5 +1007,7 @@ class freq(Component):
         J['freq', 'L'] = dfdx[1]
         J['freq', 'm_L'] = dfdx[0]
         J['freq', 'I'] = dfdx[2]
+        J['freq', 'Mt'] = dfdx[3]
+        J['freq', 'It'] = dfdx[4]
 
         return J
