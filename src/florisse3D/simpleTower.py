@@ -415,6 +415,8 @@ class Fz_comp(Component):
         J = {}
         J['Fz','m'] = -9.81
 
+        return J
+
 class axial_and_shear(Component):
     """axial stress at each point"""
 
@@ -926,6 +928,7 @@ class freq(Component):
         E = params['E'][0]
         Mt = params['Mt']
         It = params['It']
+
 
         # # constant
         # Mt = 3.4

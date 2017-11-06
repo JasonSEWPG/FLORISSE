@@ -159,7 +159,7 @@ class foundationCost(Component):
         # topMass = 24.05066 #??
         # #topMass = 88. #??
 
-        topMass = np.zeros(nTurbs)
+        topMass = np.zeros(int(nTurbs))
         for i in range(int(nTurbs)):
             topMass[i] = 50. #TODO don't really know what this is: need to fix for sure
         self.topMass = topMass
@@ -207,7 +207,7 @@ class erectionCost(Component):
         weatherDelayDays = 5.
         craneBreakdowns = 1.
 
-        cost = np.zeros(nTurbs)
+        cost = np.zeros(int(nTurbs))
         for i in range(int(nTurbs)):
             cost[i] = (37.*ratedPower[i] + 27000.*nTurbs**(-0.42145) + (turbineZ[i]-80.)*500.)
 

@@ -19,9 +19,9 @@ class getRating(Component):
         self.nTurbines = nTurbines
         self.add_param('rotorDiameter', np.zeros(nTurbines), desc='array of rotor diameters')
 
-        self.add_output('ratedPower', np.zeros(nTurbines), desc='rated power array')
+        self.add_output('ratedPower', np.zeros(nTurbines), units='kW',  desc='rated power array')
         for i in range(nTurbines):
-            self.add_output('rated_powers%s'%i, 0.0, desc='rated power of each turbine')
+            self.add_output('rated_powers%s'%i, 0.0, units='kW', desc='rated power of each turbine')
 
 
     def solve_nonlinear(self, params, unknowns, resids):
@@ -45,19 +45,61 @@ class getRating(Component):
         return J
 
 
-# class frequencyConstraint(Component):
-#     """
-#     Find the frequency coinstraint as a function of rotor diameter
-#     """
-#     def __init__(self):
-#
-#         super(frequencyConstraint, self).__init__()
-#
-#         self.add_param('diameter', 126.4, desc='rotor diameter')
-#
-#         self.add_output('maxFreq', 0.0, desc='frequency constraint')
-#
-#     def solve_nonlinear(self,params,unknowns,resids):
+class getMinFreq(Component):
+    """
+    linear relation for the frequency constraint/rotation rate of the turbine wrt rotor diameter
+    """
+
+    def __init__(self):
+
+        super(getMinFreq, self).__init__()
+        self.add_param('diameter', 0.0, desc='rotor diameter')
+        self.add_output('minFreq', 0.0, desc='frequency constraint')
+
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['minFreq'] = -0.002305*params['diameter']+0.4873
+
+    def linearize(self, params, unknowns, resids):
+        J = {}
+        J['minFreq', 'diameter'] = -0.002305
+        return J
+
+
+class freqConstraint(Component):
+    """
+    linear relation for the frequency constraint/rotation rate of the turbine wrt rotor diameter
+    """
+
+    def __init__(self):
+
+        super(freqConstraint, self).__init__()
+        self.add_param('freq', 0.0, desc='frequency')
+        self.add_param('minFreq', 0.0, desc='upper bound for freq')
+        self.add_output('freqConstraint', 0.0, desc='frequency constraint')
+
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['freqConstraint'] = params['freq']-1.1*params['minFreq']
+
+    def linearize(self, params, unknowns, resids):
+
+        J = {}
+        J['freqConstraint', 'freq'] = 1.
+        J['freqConstraint', 'minFreq'] = -1.1
+        return J
+
+class freqConstraintGroup(Group):
+    """
+    linear relation for the frequency constraint/rotation rate of the turbine wrt rotor diameter
+    """
+
+    def __init__(self):
+
+        super(freqConstraintGroup, self).__init__()
+
+        self.add('getMinFreq', getMinFreq(), promotes=['*'])
+        self.add('freqConstraint', freqConstraint(), promotes=['*'])
 
 
 if __name__=="__main__":

@@ -4,8 +4,7 @@ from scipy.spatial import ConvexHull
 from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary
 import os
 from rotorse.precomp import Profile, Orthotropic2DMaterial, CompositeSection, _precomp
-
-
+from scipy.interpolate import RectBivariateSpline
 
 def setupTower(n, prob):
     prob['L_reinforced'] = 30.0*np.ones(n)  # [m] buckling length
@@ -255,7 +254,10 @@ def setupRotor(nGroups, prob):
         n = len(prob['Rotor%s.af_idx'%i])
         af = [0]*n
         for j in range(n):
-            af[j] = airfoil_types[prob['Rotor%s.af_idx'%i][j]]
+            af[j] = airfoil_types[int(prob['Rotor%s.af_idx'%i][j])]
+
+        print 'af: ', af
+        print 'airfoil_types: ', airfoil_types
         prob['Rotor%s.airfoil_types'%i] = airfoil_types  # (List): names of airfoil file
         # ----------------------
 
@@ -273,7 +275,7 @@ def setupRotor(nGroups, prob):
         # === control ===
         prob['Rotor%s.control:Vin'%i] = 3.0  # (Float, m/s): cut-in wind speed
         prob['Rotor%s.control:Vout'%i] = 25.0  # (Float, m/s): cut-out wind speed
-        prob['Rotor%s.control:ratedPower'%i] = 5e6  # (Float, W): rated power
+        # prob['Rotor%s.control:ratedPower'%i] = 5e6  # (Float, W): rated power
         prob['Rotor%s.control:minOmega'%i] = 0.0  # (Float, rpm): minimum allowed prob rotation speed
         prob['Rotor%s.control:maxOmega'%i] = 12.0  # (Float, rpm): maximum allowed prob rotation speed
         prob['Rotor%s.control:tsr'%i] = 7.55  # (Float): tip-speed ratio in Region 2 (should be optimized externally)
@@ -372,4 +374,47 @@ def setupRotor(nGroups, prob):
         prob['Rotor%s.eta_damage'%i] = 1.35*1.3*1.0  # (Float): safety factor for fatigue
         prob['Rotor%s.m_damage'%i] = 10.0  # (Float): slope of S-N curve for fatigue analysis
         prob['Rotor%s.N_damage'%i] = 365*24*3600*20.0  # (Float): number of cycles used in fatigue analysis  TODO: make function of rotation speed
-        # ----------------
+
+
+def setupSimpleRotorSE():
+    num = 100
+    x = np.linspace(500.,10000.,num)
+    y = np.linspace(25.,160.,num)
+
+    X,Y = np.meshgrid(x,y)
+
+    filename = 'src/florisse3D/optRotor/ratedT100.txt'
+    openedFile = open(filename)
+    loadedData = np.loadtxt(openedFile)
+    ratedT = loadedData[:]
+
+    filename = 'src/florisse3D/optRotor/ratedQ100.txt'
+    openedFile = open(filename)
+    loadedData = np.loadtxt(openedFile)
+    ratedQ = loadedData[:]
+
+    filename = 'src/florisse3D/optRotor/blade_mass100.txt'
+    openedFile = open(filename)
+    loadedData = np.loadtxt(openedFile)
+    blade_mass = loadedData[:]
+
+    filename = 'src/florisse3D/optRotor/Vrated100.txt'
+    openedFile = open(filename)
+    loadedData = np.loadtxt(openedFile)
+    Vrated = loadedData[:]
+
+    filename = 'src/florisse3D/optRotor/extremeT100.txt'
+    openedFile = open(filename)
+    loadedData = np.loadtxt(openedFile)
+    extremeT = loadedData[:]
+
+    global ratedT_func
+    ratedT_func = RectBivariateSpline(x, y, ratedT)
+    global ratedQ_func
+    ratedQ_func = RectBivariateSpline(x, y, ratedQ)
+    global blade_mass_func
+    blade_mass_func = RectBivariateSpline(x, y, blade_mass)
+    global Vrated_func
+    Vrated_func = RectBivariateSpline(x, y, Vrated)
+    global extremeT_func
+    extremeT_func = RectBivariateSpline(x, y, extremeT)
