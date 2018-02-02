@@ -15,7 +15,7 @@ X,Y = np.meshgrid(x,y)
 filename = 'src/florisse3D/optRotor/rotor/OPTIMIZED.txt'
 opedRatedT = open(filename)
 ratedTdata = np.loadtxt(opedRatedT)
- = ratedTdata[:]
+ # = ratedTdata[:]
 
 interp_spline = RectBivariateSpline(x, y, Z)
 print interp_spline

@@ -17,10 +17,10 @@ from openmdao.api import Problem
 # set temp option to use unified floris
 config.floris_single_component = True
 
-ICOWESdata = loadmat('YawPosResults.mat')
+# ICOWESdata = loadmat('YawPosResults.mat')
 
 # visualization: define resolution
-resolution = 2000
+resolution = 100
 
 # Define turbine characteristics
 rotorDiameter = 126.4
@@ -29,7 +29,7 @@ rotorArea = np.pi*rotorDiameter*rotorDiameter/4.0
 axialInduction = 1.0/3.0 # used only for initialization
 generatorEfficiency = 0.944
 hub_height = 90.0
-NREL5MWCPCT = pickle.load(open('../../../doc/tune/NREL5MWCPCT_dict.p'))
+NREL5MWCPCT = pickle.load(open('doc/tune/NREL5MWCPCT_dict.p'))
 datasize = NREL5MWCPCT['CP'].size
 
 nRows = 2

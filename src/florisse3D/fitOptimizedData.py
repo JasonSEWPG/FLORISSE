@@ -43,8 +43,8 @@ interp_spline = LinearNDInterpolator(cartcoord,blade_mass)
 
 cartcoord_fit = list(zip(ratedPower_fit,rotorDiameter_fit))
 interp_spline_fit = LinearNDInterpolator(cartcoord_fit,ratedT_fit)
-w = np.ones(len(ratedPower_fit))
-interp_spline_fit = SmoothBivariateSpline(ratedPower_fit,rotorDiameter_fit,ratedT_fit,w)
+# w = np.ones(len(ratedPower_fit))
+# interp_spline_fit = SmoothBivariateSpline(ratedPower_fit,rotorDiameter_fit,ratedT_fit,w)
 
 print '500, 40: ', interp_spline(500.,40.)
 print '1000, 60: ', interp_spline(1000.,60.)

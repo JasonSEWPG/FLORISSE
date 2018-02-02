@@ -22,7 +22,7 @@ config.floris_single_component = True
 ICOWESdata = loadmat('YawPosResults.mat')
 
 # visualization: define resolution
-resolution = 2000
+resolution = 100
 
 # Define turbine characteristics
 rotorDiameter = 126.4
