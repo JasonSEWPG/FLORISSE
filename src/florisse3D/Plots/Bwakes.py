@@ -83,6 +83,7 @@ prob['windSpeeds'] = np.array([wind_speed])
 prob['air_density'] = 1.1716
 wind_frequency = 1.0
 prob['windFrequencies'] = np.array([wind_frequency])
+# prob['wind_speed'] = np.array([1.])
 
 # prob.initVelocitiesTurbines = np.ones_like(prob.windrose_directions)*wind_speed
 
