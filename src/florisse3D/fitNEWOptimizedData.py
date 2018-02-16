@@ -23,6 +23,26 @@ I3 = data[:,7]
 ratedT = data[:,8]
 extremeT = data[:,9]
 
+print max(ratedPower)
+print max(rotorDiameter)
+print max(ratedQ)
+print max(blade_mass)
+print max(Vrated)
+print max(I1)
+print max(I2)
+print max(I3)
+print max(ratedT)
+print max(extremeT)
+
+newRatedQ = np.zeros(30)
+newRatedPower = np.zeros(30)
+newRotorDiameter = np.zeros(30)
+
+for i in range(30):
+    newRatedQ[i] = ratedQ[i*10]/max(ratedQ)
+    newRatedPower[i] = ratedPower[i*10]/max(ratedPower)
+    newRotorDiameter[i] = rotorDiameter[i*10]/max(rotorDiameter)
+
 results_rated_power = np.zeros((20,20))
 results_rotor_diameter = np.zeros((20,20))
 results_ratedQ = np.zeros((20,20))
@@ -88,10 +108,10 @@ interp_spline_ratedT = SmoothBivariateSpline(ratedPower,rotorDiameter,ratedT,w,k
 interp_spline_extremeT = SmoothBivariateSpline(ratedPower,rotorDiameter,extremeT,w,kx=order,ky=order)
 
 num = 100
-x = np.linspace(500.,10000.,num)
-y = np.linspace(50.,160.,num)
-x = np.linspace(0.,1.,num)
-y = np.linspace(0.,1.,num)
+x = np.linspace(500.,10000.,num)/10000.
+y = np.linspace(40.,160.,num)/160.
+# x = np.linspace(0.,1.,num)
+# y = np.linspace(0.,1.,num)
 X,Y = np.meshgrid(x,y)
 #
 Z_ratedQ = np.zeros((num,num))
@@ -114,48 +134,57 @@ for i in range(num):
         Z_ratedT[j][i] = interp_spline_ratedT(x[i],y[j])
         Z_extremeT[j][i] = interp_spline_extremeT(x[i],y[j])
 
-fig, ax = plt.subplots(nrows=2, ncols=4, subplot_kw={'projection': '3d'})
+# fig, ax = plt.subplots(nrows=2, ncols=4, subplot_kw={'projection': '3d'})
+fig, ax = plt.subplots(subplot_kw={'projection': '3d'})
 # fig = plt.figure()
 # ax = fig.add_subplot(111, projection='3d')
 
-ax[0][0].plot_surface(X, Y, Z_blade_mass)
-ax[0][0].plot(ratedPower, rotorDiameter, blade_mass, 'or')
-
-ax[0][1].plot_surface(X, Y, Z_Vrated)
-ax[0][1].plot(ratedPower, rotorDiameter, Vrated, 'or')
-
-ax[0][2].plot_surface(X, Y, Z_ratedQ)
-ax[0][2].plot(ratedPower, rotorDiameter, ratedQ, 'or')
-
-ax[0][3].plot_surface(X, Y, Z_ratedT)
-ax[0][3].plot(ratedPower, rotorDiameter, ratedT, 'or')
-
-
-ax[1][0].plot_surface(X, Y, Z_I1)
-ax[1][0].plot(ratedPower, rotorDiameter, I1, 'or')
-
-ax[1][1].plot_surface(X, Y, Z_I2)
-ax[1][1].plot(ratedPower, rotorDiameter, I2, 'or')
-
-ax[1][2].plot_surface(X, Y, Z_I3)
-ax[1][2].plot(ratedPower, rotorDiameter, I3, 'or')
-
-ax[1][3].plot_surface(X, Y, Z_extremeT)
-ax[1][3].plot(ratedPower, rotorDiameter, extremeT, 'or')
-
-print 'max, max: ', interp_spline_blade_mass(10000.,160.), results_blade_mass[19][19]
-
+# ax[0][0].plot_surface(X, Y, Z_blade_mass)
+# ax[0][0].plot(ratedPower, rotorDiameter, blade_mass, 'or')
 #
-# ax[1].plot_wireframe(X, Y, Z_smooth_blade_mass, color='k')
+# ax[0][1].plot_surface(X, Y, Z_Vrated)
+# ax[0][1].plot(ratedPower, rotorDiameter, Vrated, 'or')
 #
-# # for axes in ax:
-# #     # axes.set_zlim(-0.2,1)
-# #     axes.set_axis_off()
+# ax[0][2].plot_surface(X, Y, Z_ratedQ)
+# ax[0][2].plot(ratedPower, rotorDiameter, ratedQ, 'or')
 #
+# ax[0][3].plot_surface(X, Y, Z_ratedT)
+# ax[0][3].plot(ratedPower, rotorDiameter, ratedT, 'or')
+
+
+# ax[1][0].plot_surface(X, Y, Z_I1)
+# ax[1][0].plot(ratedPower, rotorDiameter, I1, 'or')
+
+ax.plot_surface(X, Y, Z_ratedQ,cmap=plt.cm.gray)
+# ax.plot(ratedPower, rotorDiameter, ratedQ, 'ow')
+ax.plot(newRatedPower, newRotorDiameter, newRatedQ, 'ow')
+
+# ax[1][1].plot_surface(X, Y, Z_I2)
+# ax[1][1].plot(ratedPower, rotorDiameter, I2, 'or')
+#
+# ax[1][2].plot_surface(X, Y, Z_I3)
+# ax[1][2].plot(ratedPower, rotorDiameter, I3, 'or')
+#
+# ax[1][3].plot_surface(X, Y, Z_extremeT)
+# ax[1][3].plot(ratedPower, rotorDiameter, extremeT, 'or')
+#
+# print 'max, max: ', interp_spline_blade_mass(10000.,160.), results_blade_mass[19][19]
+#
+# #
+# # ax[1].plot_wireframe(X, Y, Z_smooth_blade_mass, color='k')
+# #
+# # # for axes in ax:
+# # #     # axes.set_zlim(-0.2,1)
+# # #     axes.set_axis_off()
+# #
+plt.axis('off')
 fig.tight_layout()
-plt.xlabel('Turbine Rating')
-plt.ylabel('Rotor Diameter')
-plt.title('Blade Mass')
+plt.savefig('fit.pdf', transparent=True)
+
+
+# plt.xlabel('Turbine Rating')
+# plt.ylabel('Rotor Diameter')
+# plt.title('Blade Mass')
 
 #
 # #
@@ -173,3 +202,8 @@ plt.title('Blade Mass')
 # # plt.ylabel('Rotor Diameter')
 print len(w)
 plt.show()
+
+print interp_spline_blade_mass.get_coeffs()
+print interp_spline_blade_mass.ev(0.5,0.5,dx=0,dy=1)
+print interp_spline_blade_mass.ev(0.5,0.5,dx=1,dy=0)
+print interp_spline_blade_mass.ev(0.5,0.5,dx=1,dy=1)

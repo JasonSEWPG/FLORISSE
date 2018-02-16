@@ -8,7 +8,7 @@ from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary, SpacingComp
 from FLORISSE3D.COE import COEGroup
 from FLORISSE3D.floris import AEPGroup
 from FLORISSE3D.rotorComponents import getRating, freqConstraintGroup
-from FLORISSE3D.SimpleRotorSE import SimpleRotorSE
+from FLORISSE3D.SimpleRotorSE import SimpleRotorSE, create_rotor_functions
 import cPickle as pickle
 from sys import argv
 from rotorse.rotor import RotorSE
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     """setup the turbine locations"""
     nRows = 2
     nTurbs = nRows**2
-    nGroups = 1
+    nGroups = 2
     spacing = 3.
 
     rotor_diameter = 126.4
@@ -56,6 +56,8 @@ if __name__ == '__main__':
     prob = Problem()
     root = prob.root = Group()
 
+    interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT = create_rotor_functions()
+
     #Design Variables
     for i in range(nGroups):
         root.add('ratedPower%s'%i, IndepVarComp('ratedPower%s'%i, float(ratedPower[i]), units='kW'), promotes=['*'])
@@ -75,7 +77,7 @@ if __name__ == '__main__':
         root.add('freqConstraintGroup%s'%i, freqConstraintGroup())
 
 
-        root.add('Rotor%s'%i, SimpleRotorSE())
+        root.add('Rotor%s'%i, SimpleRotorSE(interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT))
         root.add('split_I%s'%i, DeMUX(6)) #have derivatives
         root.add('Myy_estimate%s'%i, Myy_estimate()) #have derivatives
 
@@ -235,6 +237,12 @@ if __name__ == '__main__':
     print 'Vel Thrust: ', prob['Tower0_max_thrust.Vel']
     print 'ratedPower: ', prob['ratedPower0']
     print 'rotorDiameter: ', prob['rotorDiameter0']
+
+
+    print 'Vrated: ', prob['Rotor0.Vrated']
+    print 'blade_mass: ', prob['Rotor1.blade_mass']
+    print 'extremeT: ', prob['Rotor0.extremeT']
+    print 'I: ', prob['Rotor0.I']
 
 
     # for i in range(nGroups):
