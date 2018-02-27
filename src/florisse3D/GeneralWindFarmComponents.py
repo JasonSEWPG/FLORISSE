@@ -7,6 +7,7 @@ import numpy as np
 from scipy import interp
 from scipy.io import loadmat
 from scipy.spatial import ConvexHull
+from scipy.interpolate import CubicSpline
 import random
 
 def add_gen_params_IdepVarComps(openmdao_group, datasize):
@@ -958,13 +959,11 @@ class WindDirectionPower(Component):
         nTurbines = self.nTurbines
         wtVelocity = self.params['wtVelocity%i' % direction_id]
         ratedPower = params['ratedPower']
-        # print 'in comp rated power: ', ratedPower
         air_density = params['air_density']
         rotorArea = 0.25*np.pi*np.power(params['rotorDiameter'], 2)
         Cp = params['Cp']
         generatorEfficiency = params['generatorEfficiency']
-        # print 'DirPowers: '
-        # print 'wtVelocity: ', wtVelocity
+
 
         # calculate initial values for wtPower (W)
         wtPower = generatorEfficiency*(0.5*air_density*rotorArea*Cp*np.power(wtVelocity, 3))
@@ -979,11 +978,25 @@ class WindDirectionPower(Component):
         # dwt_power_dvelocitiesTurbines /= 1000.
 
         # adjust wt power based on rated power
-        if not use_rotor_components and np.any(wtPower) >= np.any(ratedPower):
-            for i in range(0, nTurbines):
-                if wtPower[i] >= ratedPower[i]:
-                    wtPower[i] = ratedPower[i]
 
+        self.dwtPower_dratedPower = np.zeros((nTurbines, nTurbines))
+        self.ddir_power_dratedPower = np.zeros((1,nTurbines))
+
+        if not use_rotor_components and np.any(wtPower) >= (np.any(ratedPower)-100.):
+            for i in range(0, nTurbines):
+                if (ratedPower[i]-100.) <= wtPower[i] <= (ratedPower[i]+100.):
+                    x = np.array([(ratedPower[i]-100.),ratedPower[i],(ratedPower[i]+100.)])
+                    y = np.array([(ratedPower[i]-100.),ratedPower[i]-25.,ratedPower[i]])
+                    cs = CubicSpline(x,y)
+                    power = wtPower[i]
+                    wtPower[i] = cs(power)
+                    der = cs.derivative()
+                    self.dwtPower_dratedPower[i][i] = 1.-der(power)
+                    self.ddir_power_dratedPower[0][i] = 1.-der(power)
+                elif wtPower[i] > (ratedPower[i]+100.):
+                    wtPower[i] = ratedPower[i]
+                    self.dwtPower_dratedPower[i][i] = 1.
+                    self.ddir_power_dratedPower[0][i] = 1.
 
         # if np.any(rated_velocity+1.) >= np.any(wtVelocity) >= np.any(rated_velocity-1.) and not \
         #         use_rotor_components:
@@ -1010,10 +1023,6 @@ class WindDirectionPower(Component):
         # calculate total power for this direction
         dir_power = np.sum(wtPower)
 
-        # print 'DirectionPower:'
-        # print 'wtVelocity: ', wtVelocity
-        # print 'wtPower: ', wtPower
-        # print 'dir_power: ', dir_power
         # pass out results
         unknowns['wtPower%i' % direction_id] = wtPower
         unknowns['dir_power%i' % direction_id] = dir_power
@@ -1061,29 +1070,30 @@ class WindDirectionPower(Component):
         #                                                              deriv_spline_start_power, spline_end_power, 0.0)
 
         # set gradients for turbines above rated power to zero
-        if np.any(wtPower) >= np.any(ratedPower) and not use_rotor_components:
+        """
+        if np.any(wtPower) >= (np.any(ratedPower)-100.) and not use_rotor_components:
             for i in range(0, nTurbines):
-                if wtPower[i] >= ratedPower[i]:
+                if (ratedPower[i]-100.) <= wtPower[i] <= (ratedPower[i]+100.):
+                    x = np.array([(ratedPower[i]-100.),ratedPower[i],(ratedPower[i]+100.)])
+                    y = np.array([(ratedPower[i]-100.),ratedPower[i]-25.,ratedPower[i]])
+                    cs = CubicSpline(x,y)
+                    power = wtPower[i]
+                    der = cs.derivative()
+                    dwtPower_dwtVelocity[i][i] = 1.-der(power)
+                elif wtPower[i] > (ratedPower[i]+100.):
                     dwtPower_dwtVelocity[i][i] = 0.0
                     dwtPower_dCp[i][i] = 0.0
                     dwtPower_drotorDiameter[i][i] = 0.0
+        """
+
 
         # compile elements of Jacobian
         ddir_power_dwtVelocity = np.array([np.sum(dwtPower_dwtVelocity, 0)])
         ddir_power_dCp = np.array([np.sum(dwtPower_dCp, 0)])
         ddir_power_drotorDiameter = np.array([np.sum(dwtPower_drotorDiameter, 0)])
 
-        dwtPower_dratedPower = np.zeros((nTurbines, nTurbines))
-        ddir_power_dratedPower = np.zeros((1,nTurbines))
-        for i in range(0, nTurbines):
-            if wtPower[i] == ratedPower[i]:
-                dwtPower_dratedPower[i][i] = 1.0
-                ddir_power_dratedPower[0][i] = 1.0
-
-        # print 'DirectionPower Gradients:'
-        # print 'ddir_power_dwtVelocity: ', ddir_power_dwtVelocity
-        # print 'ddir_power_dCp: ', ddir_power_dCp
-        # print 'ddir_power_drotorDiameter: ', ddir_power_drotorDiameter
+        dwtPower_dratedPower = self.dwtPower_dratedPower
+        ddir_power_dratedPower = self.ddir_power_dratedPower
 
         # initialize Jacobian dict
         J = {}
@@ -1736,6 +1746,10 @@ class getRatedPower(Component):
             for l in range(nGroups):
                 if hGroup[k] == l:
                     J['ratedPower', 'ratedPower%s'%l][k] = 1.
+
+        # for i in range(nGroups):
+        #     J['rated_powers%s'%i, 'ratedPower%s'%j] = np.zeros(nTurbs)
+
         return J
 
 

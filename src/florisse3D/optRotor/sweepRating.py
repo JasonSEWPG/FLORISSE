@@ -1,5 +1,5 @@
 import numpy as np
-from openmdao.api import Group, Problem, IndepVarComp, pyOptSparseDriver, view_tree, profile
+from openmdao.api import Group, Problem, IndepVarComp, pyOptSparseDriver
 from FLORISSE3D.setupOptimization import *
 from FLORISSE3D.simpleTower import Tower
 from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary, SpacingComp,\
@@ -8,34 +8,38 @@ from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary, SpacingComp
 from FLORISSE3D.COE import COEGroup
 from FLORISSE3D.floris import AEPGroup
 from FLORISSE3D.rotorComponents import getRating, freqConstraintGroup
-from FLORISSE3D.SimpleRotorSE import SimpleRotorSE
-import cPickle as pickle
-from sys import argv
+from FLORISSE3D.SimpleRotorSE import SimpleRotorSE, create_rotor_functions
 from rotorse.rotor import RotorSE
-import os
 import matplotlib.pyplot as plt
 
 from time import time
 
 if __name__ == '__main__':
-    nDirections = amaliaWind({})
+    # nDirections = amaliaWind({})
 
     """setup the turbine locations"""
     nRows = 2
     nTurbs = nRows**2
     nGroups = 2
-    spacing = 3.
+    spacing = 4.
 
     rotor_diameter = 126.4
     turbineX, turbineY = setupGrid(nRows, rotor_diameter, spacing)
-
-    turbineX = np.array([0.,   0.,   0.,   0.,    0.,    0.])
-    turbineY = np.array([0., 300., 600., 900., 1200., 1500.])*0.75
+    turbineX = np.array([0.,500.,0.])#,0.,500.])
+    turbineY = np.array([0.,0.,500.])#,500.,500.])
     nTurbs = len(turbineX)
 
     nDirections = 1
 
     minSpacing = 2.0
+
+    locations = np.zeros((nTurbs,2))
+    for i in range(nTurbs):
+        locations[i][0] = turbineX[i]
+        locations[i][1] = turbineY[i]
+
+    boundaryVertices, boundaryNormals = calculate_boundary(locations)
+    nVertices = boundaryVertices.shape[0]
 
     """initial yaw values"""
     yaw = np.zeros((nDirections, nTurbs))
@@ -47,24 +51,34 @@ if __name__ == '__main__':
     t_param = np.array([0.02,0.015,0.01])
 
     shearExp = 0.08
-    rotorDiameter = np.array([120.4, 70.,150.,155.,141.])
+    rotorDiameter = np.array([125.4, 70.,150.,155.,141.])
+    # rotorDiameter = np.array([126.4, 126.4,150.,155.,141.])
     turbineZ = np.array([120., 70., 100., 120., 30.])
-    ratedPower = np.array([4000.,4000.,2000.,3000.,3004.])
+    turbineZ = np.array([90., 100., 100., 120., 30.])
+    ratedPower = np.array([5000.,6000.,2000.,3000.,3004.])
+
+    num = 1000
+    optH = np.zeros(num)
+    optCOE = np.zeros(num)
+    p = np.linspace(1000.,5000.,num)
+
 
     """OpenMDAO"""
-
-
 
     start_setup = time()
     prob = Problem()
     root = prob.root = Group()
 
+    interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT = create_rotor_functions()
+
     #Design Variables
     for i in range(nGroups):
-        root.add('ratedPower%s'%i, IndepVarComp('ratedPower%s'%i, float(ratedPower[i]), units='kW'), promotes=['*'])
+        # root.add('ratedPower%s'%i, IndepVarComp('ratedPower%s'%i, float(ratedPower[i]), units='kW'), promotes=['*'])
+        root.add('ratedPower%s'%i, IndepVarComp('ratedPower%s'%i, float(p[0]), units='kW'), promotes=['*'])
         root.add('d_param%s'%i, IndepVarComp('d_param%s'%i, d_param), promotes=['*'])
         root.add('t_param%s'%i, IndepVarComp('t_param%s'%i, t_param), promotes=['*'])
         root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(turbineZ[i])), promotes=['*'])
+        # root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(h[k])), promotes=['*'])
         root.add('rotorDiameter%s'%i, IndepVarComp('rotorDiameter%s'%i, float(rotorDiameter[i])), promotes=['*'])
 
 
@@ -78,7 +92,7 @@ if __name__ == '__main__':
         root.add('freqConstraintGroup%s'%i, freqConstraintGroup())
 
 
-        root.add('Rotor%s'%i, SimpleRotorSE())
+        root.add('Rotor%s'%i, SimpleRotorSE(interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT))
         root.add('split_I%s'%i, DeMUX(6)) #have derivatives
         root.add('Myy_estimate%s'%i, Myy_estimate()) #have derivatives
 
@@ -89,18 +103,18 @@ if __name__ == '__main__':
 
     root.add('COEGroup', COEGroup(nTurbs, nGroups, nDirections, nPoints, nFull), promotes=['*']) #TODO check derivatives?
 
-    # root.add('spacing_comp', SpacingComp(nTurbines=nTurbs), promotes=['*'])
+    root.add('spacing_comp', SpacingComp(nTurbines=nTurbs), promotes=['*'])
 
     # add constraint definitions
-    # root.add('spacing_con', ExecComp('sc = wtSeparationSquared-(minSpacing*rotorDiameter[0])**2',
-    #                              minSpacing=minSpacing, rotorDiameter=np.zeros(nTurbs),
-    #                              sc=np.zeros(((nTurbs-1)*nTurbs/2)),
-    #                              wtSeparationSquared=np.zeros(((nTurbs-1)*nTurbs/2))),
-    #                              promotes=['*'])
+    root.add('spacing_con', ExecComp('sc = wtSeparationSquared-(minSpacing*rotorDiameter[0])**2',
+                                 minSpacing=minSpacing, rotorDiameter=np.zeros(nTurbs),
+                                 sc=np.zeros(((nTurbs-1)*nTurbs/2)),
+                                 wtSeparationSquared=np.zeros(((nTurbs-1)*nTurbs/2))),
+                                 promotes=['*'])
 
-    # if nVertices > 0:
-    #     # add component that enforces a convex hull wind farm boundary
-    #     root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
+    if nVertices > 0:
+        # add component that enforces a convex hull wind farm boundary
+        root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
 
     root.connect('turbineZ', 'Zs.Array')
     # root.connect('air_density', 'rhoAir')
@@ -166,40 +180,6 @@ if __name__ == '__main__':
         root.connect('t_param%s'%i, 'TowerDiscretization%s.t_param'%i)
         root.connect('rho', 'calcMass%s.rho'%i)
 
-    prob.driver = pyOptSparseDriver()
-    prob.driver.options['optimizer'] = 'SNOPT'
-    prob.driver.opt_settings['Major iterations limit'] = 1000
-    prob.driver.opt_settings['Major optimality tolerance'] = 1.5E-4
-    prob.driver.opt_settings['Major feasibility tolerance'] = 1.1E-4
-
-    # prob.driver.opt_settings['Summary file'] = 'SNOPT.out'
-
-    root.Rotor0.deriv_options['type'] = 'fd'
-    root.Rotor0.deriv_options['form'] = 'central'
-    root.Rotor0.deriv_options['step_size'] = 1.E-4
-    root.Rotor0.deriv_options['step_calc'] = 'relative'
-
-    root.Rotor1.deriv_options['type'] = 'fd'
-    root.Rotor1.deriv_options['form'] = 'central'
-    root.Rotor1.deriv_options['step_size'] = 1.E-4
-    root.Rotor1.deriv_options['step_calc'] = 'relative'
-
-    prob.driver.add_objective('COE', scaler=0.1)
-
-    for i in range(nGroups):
-        prob.driver.add_desvar('d_param%s'%i, lower=3.87, upper=6.3, scaler=1.)
-        prob.driver.add_desvar('t_param%s'%i, lower=0.001, upper=None, scaler=0.1)
-        prob.driver.add_desvar('turbineH%s'%i, lower=10., scaler=10.)
-        prob.driver.add_desvar('rotorDiameter%s'%i, lower=10., upper=130., scaler=1.)
-        # prob.driver.add_desvar('ratedPower%s'%i, lower=0., upper=10000., scaler=2.)
-        #TODO add design variables for blade design
-
-    for i in range(nGroups):
-        prob.driver.add_constraint('Tower%s_max_thrust.shell_buckling'%i, upper=np.ones(nFull))
-        prob.driver.add_constraint('Tower%s_max_speed.shell_buckling'%i, upper=np.ones(nFull))
-        prob.driver.add_constraint('freqConstraintGroup%s.freqConstraint'%i, lower=0.0)
-        prob.driver.add_constraint('minHeight%s.minHeight'%i, lower=0.0)
-
     prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
     prob.setup(check=True)
 
@@ -212,7 +192,7 @@ if __name__ == '__main__':
     simpleSetup(nTurbs, prob)
     # setupSimpleRotorSE()
     prob['Uref'] = np.array([10.])
-    prob['windDirections'] = np.array([0.])
+    prob['windDirections'] = np.array([90.])
     prob['windFrequencies'] = np.array([1.])
 
     for i in range(nDirections):
@@ -227,33 +207,41 @@ if __name__ == '__main__':
     for i in range(nGroups):
         prob['Tower%s_max_speed.Vel'%i] = 70.
 
+    # provide values for hull constraint
+    prob['boundaryVertices'] = boundaryVertices
+    prob['boundaryNormals'] = boundaryNormals
+
     end_assign = time()
 
-    prob['d_param0'] = np.array([ 6.3,  6.3,  6.3])
-    prob['t_param0'] = np.array([ 0.0382152,   0.01574483,  0.00956323])
-    prob['turbineH0'] = 156.967215704
-    prob['rotorDiameter0'] = 160.0
-    prob['ratedPower0'] = 4000.0
+    # print 'setup time: ', end_setup - start_setup
+    # print 'assign time: ', end_assign - start_assign
 
-    prob['d_param1'] = np.array([ 4.06629653,  3.99682359 , 3.87      ])
-    prob['t_param1'] = np.array([ 0.01927008,  0.01269312,   0.00915698])
-    prob['turbineH1'] = 75.5269747317
-    prob['rotorDiameter1'] = 131.053949463
-    prob['ratedPower1'] = 4000.0
-
-    num = 200
     COE = np.zeros(num)
-    rating = np.linspace(-300.,200.,num)
+    cost = np.zeros(num)
+    AEP = np.zeros(num)
 
-    for i in range(num):
-        prob['ratedPower1'] = 4000.+rating[i]
-        prob.run_once()
-        COE[i] = prob['COE']
-        print 'COE: ', i, ' ', prob['COE']
+    for k in range(num):
+        prob['ratedPower0'] = p[k]
+        startRun = time()
+        prob.run()
+        COE[k] = prob['COE']
+        AEP[k] = prob['AEP']
+        cost[k] = prob['cost']
+        print k
 
-    rated = 4000.+rating
-    plt.plot(rated,COE, linewidth=2)
-    plt.title('Short Height Group')
-    plt.xlabel('Rated Power')
-    plt.ylabel('COE')
+    plt.figure(1)
+    plt.title('COE')
+    plt.plot(p,COE)
+    # plt.show()
+
+
+    plt.figure(2)
+    plt.title('cost')
+    plt.plot(p,cost)
+    # plt.show()
+
+
+    plt.figure(3)
+    plt.title('AEP')
+    plt.plot(p,AEP)
     plt.show()

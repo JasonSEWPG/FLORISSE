@@ -60,5 +60,5 @@ if __name__=='__main__':
     ax.get_xaxis().set_visible(False)
     plt.ylabel('Height (m)')
     plt.title('Optimized Heights')
-    fig.savefig('optimizedHeights.pdf', transparent=True)
+    # fig.savefig('optimizedHeights.pdf', transparent=True)
     plt.show()
