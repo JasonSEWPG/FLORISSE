@@ -960,6 +960,7 @@ class WindDirectionPower(Component):
         wtVelocity = self.params['wtVelocity%i' % direction_id]
         ratedPower = params['ratedPower']
         air_density = params['air_density']
+        rotorDiameter = params['rotorDiameter']
         rotorArea = 0.25*np.pi*np.power(params['rotorDiameter'], 2)
         Cp = params['Cp']
         generatorEfficiency = params['generatorEfficiency']
@@ -979,6 +980,21 @@ class WindDirectionPower(Component):
 
         # adjust wt power based on rated power
 
+        """Gradients!"""
+
+        # calcuate initial gradient values
+        self.dwtPower_dwtVelocity = np.eye(nTurbines)*generatorEfficiency*(1.5*air_density*rotorArea*Cp *
+                                                                                np.power(wtVelocity, 2))
+        self.dwtPower_dCp = np.eye(nTurbines)*generatorEfficiency*(0.5*air_density*rotorArea*np.power(wtVelocity, 3))
+        self.dwtPower_drotorDiameter = np.eye(nTurbines)*generatorEfficiency*(0.5*air_density*(0.5*np.pi*rotorDiameter)*Cp *
+                                                                           np.power(wtVelocity, 3))
+        # dwt_power_dvelocitiesTurbines = self.dwt_power_dvelocitiesTurbines
+
+        # adjust gradients for unit conversion from W to kW
+        self.dwtPower_dwtVelocity /= 1000.
+        self.dwtPower_dCp /= 1000.
+        self.dwtPower_drotorDiameter /= 1000.
+
         self.dwtPower_dratedPower = np.zeros((nTurbines, nTurbines))
         self.ddir_power_dratedPower = np.zeros((1,nTurbines))
 
@@ -993,10 +1009,19 @@ class WindDirectionPower(Component):
                     der = cs.derivative()
                     self.dwtPower_dratedPower[i][i] = 1.-der(power)
                     self.ddir_power_dratedPower[0][i] = 1.-der(power)
+
+                    self.dwtPower_dwtVelocity[i][i] = self.dwtPower_dwtVelocity[i][i] * der(power)
+                    self.dwtPower_dCp[i][i] = self.dwtPower_dCp[i][i] * der(power)
+                    self.dwtPower_drotorDiameter[i][i] = self.dwtPower_drotorDiameter[i][i] * der(power)
+
                 elif wtPower[i] > (ratedPower[i]+100.):
                     wtPower[i] = ratedPower[i]
                     self.dwtPower_dratedPower[i][i] = 1.
                     self.ddir_power_dratedPower[0][i] = 1.
+
+                    self.dwtPower_dwtVelocity[i][i] = 0.
+                    self.dwtPower_dCp[i][i] = 0.
+                    self.dwtPower_drotorDiameter[i][i] = 0.
 
         # if np.any(rated_velocity+1.) >= np.any(wtVelocity) >= np.any(rated_velocity-1.) and not \
         #         use_rotor_components:
@@ -1044,6 +1069,7 @@ class WindDirectionPower(Component):
         ratedPower = params['ratedPower']
         wtPower = unknowns['wtPower%i' % direction_id]
 
+        """
         # calcuate initial gradient values
         dwtPower_dwtVelocity = np.eye(nTurbines)*generatorEfficiency*(1.5*air_density*rotorArea*Cp *
                                                                                 np.power(wtVelocity, 2))
@@ -1056,6 +1082,11 @@ class WindDirectionPower(Component):
         dwtPower_dwtVelocity /= 1000.
         dwtPower_dCp /= 1000.
         dwtPower_drotorDiameter /= 1000.
+        """
+
+        dwtPower_dwtVelocity = self.dwtPower_dwtVelocity
+        dwtPower_dCp = self.dwtPower_dCp
+        dwtPower_drotorDiameter = self.dwtPower_drotorDiameter
 
         # rated_velocity = np.power(1000.*ratedPower/(generator_efficiency*(0.5*air_density*rotorArea*Cp)), 1./3.)
 
@@ -1070,6 +1101,7 @@ class WindDirectionPower(Component):
         #                                                              deriv_spline_start_power, spline_end_power, 0.0)
 
         # set gradients for turbines above rated power to zero
+
         """
         if np.any(wtPower) >= (np.any(ratedPower)-100.) and not use_rotor_components:
             for i in range(0, nTurbines):

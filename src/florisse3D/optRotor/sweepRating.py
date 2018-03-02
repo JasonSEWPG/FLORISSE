@@ -20,29 +20,31 @@ if __name__ == '__main__':
     """setup the turbine locations"""
     nRows = 2
     nTurbs = nRows**2
-    nGroups = 2
+    nGroups = 1
     spacing = 4.
 
     rotor_diameter = 126.4
     turbineX, turbineY = setupGrid(nRows, rotor_diameter, spacing)
-    turbineX = np.array([0.,500.,0.])#,0.,500.])
-    turbineY = np.array([0.,0.,500.])#,500.,500.])
+
+
+    turbineX = np.array([0.,500.])#,0.,500.])
+    turbineY = np.array([0.,0.])#,500.,500.])
     nTurbs = len(turbineX)
 
-    nDirections = 1
+    nDirections = 2
 
     minSpacing = 2.0
 
-    locations = np.zeros((nTurbs,2))
-    for i in range(nTurbs):
-        locations[i][0] = turbineX[i]
-        locations[i][1] = turbineY[i]
-
-    boundaryVertices, boundaryNormals = calculate_boundary(locations)
-    nVertices = boundaryVertices.shape[0]
+    # locations = np.zeros((nTurbs,2))
+    # for i in range(nTurbs):
+    #     locations[i][0] = turbineX[i]
+    #     locations[i][1] = turbineY[i]
+    #
+    # boundaryVertices, boundaryNormals = calculate_boundary(locations)
+    # nVertices = boundaryVertices.shape[0]
 
     """initial yaw values"""
-    yaw = np.zeros((nDirections, nTurbs))
+    yaw = np.ones((nDirections, nTurbs))*0.
 
     nPoints = 3
     nFull = 15
@@ -57,7 +59,7 @@ if __name__ == '__main__':
     turbineZ = np.array([90., 100., 100., 120., 30.])
     ratedPower = np.array([5000.,6000.,2000.,3000.,3004.])
 
-    num = 1000
+    num = 1
     optH = np.zeros(num)
     optCOE = np.zeros(num)
     p = np.linspace(1000.,5000.,num)
@@ -112,9 +114,9 @@ if __name__ == '__main__':
                                  wtSeparationSquared=np.zeros(((nTurbs-1)*nTurbs/2))),
                                  promotes=['*'])
 
-    if nVertices > 0:
-        # add component that enforces a convex hull wind farm boundary
-        root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
+    # if nVertices > 0:
+    #     # add component that enforces a convex hull wind farm boundary
+    #     root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
 
     root.connect('turbineZ', 'Zs.Array')
     # root.connect('air_density', 'rhoAir')
@@ -191,9 +193,9 @@ if __name__ == '__main__':
     setupTower(nFull, prob)
     simpleSetup(nTurbs, prob)
     # setupSimpleRotorSE()
-    prob['Uref'] = np.array([10.])
-    prob['windDirections'] = np.array([90.])
-    prob['windFrequencies'] = np.array([1.])
+    prob['Uref'] = np.array([10.,10.])
+    prob['windDirections'] = np.array([90.,91.])
+    prob['windFrequencies'] = np.array([1.,0.3])
 
     for i in range(nDirections):
         prob['yaw%s'%i] = yaw[i]
@@ -208,8 +210,8 @@ if __name__ == '__main__':
         prob['Tower%s_max_speed.Vel'%i] = 70.
 
     # provide values for hull constraint
-    prob['boundaryVertices'] = boundaryVertices
-    prob['boundaryNormals'] = boundaryNormals
+    # prob['boundaryVertices'] = boundaryVertices
+    # prob['boundaryNormals'] = boundaryNormals
 
     end_assign = time()
 
@@ -229,6 +231,13 @@ if __name__ == '__main__':
         cost[k] = prob['cost']
         print k
 
+    print 'AEP: ', prob['AEP']
+    print 'wakeOverlapTRel: ', prob['direction_group0.wakeOverlapTRel']
+    print 'wakeOverlapTRel: ', prob['direction_group1.wakeOverlapTRel']
+    print 'sum: ', sum(prob['direction_group0.wakeOverlapTRel'])
+    print 'len: ', np.shape((prob['direction_group0.wakeOverlapTRel']))
+
+
     plt.figure(1)
     plt.title('COE')
     plt.plot(p,COE)
@@ -244,4 +253,4 @@ if __name__ == '__main__':
     plt.figure(3)
     plt.title('AEP')
     plt.plot(p,AEP)
-    plt.show()
+    # plt.show()

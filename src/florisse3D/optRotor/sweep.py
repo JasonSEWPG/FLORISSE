@@ -177,7 +177,7 @@ if __name__ == '__main__':
     shearExp = 0.3
     rotorDiameter = np.random.rand(nGroups)*100.
     turbineZ = np.random.rand(nGroups)*100.
-    num = 100
+    num = 1
     rotor2 = 48.
     rotorDiameter = np.array([126.4, 126.4])
     turbineZ = np.array([120.,53.2])
