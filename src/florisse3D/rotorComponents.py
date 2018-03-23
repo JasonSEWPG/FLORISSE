@@ -1,6 +1,12 @@
 import numpy as np
 from math import pi, log
 from openmdao.api import Group, Component, Problem, ScipyGMRES, IndepVarComp
+from FLORISSE3D.simpleTower import Tower
+from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary, SpacingComp,\
+            BoundaryComp, get_z, getTurbineZ, AEPobj, DeMUX, hGroups, randomStart,\
+            getRotorDiameter, getRatedPower, DeMUX, Myy_estimate, bladeLengthComp, minHeight
+from FLORISSE3D.SimpleRotorSE import SimpleRotorSE, create_rotor_functions
+from FLORISSE3D.COE import COEGroup
 
 
 class getRating(Component):
@@ -100,6 +106,86 @@ class freqConstraintGroup(Group):
 
         self.add('getMinFreq', getMinFreq(), promotes=['*'])
         self.add('freqConstraint', freqConstraint(), promotes=['*'])
+
+
+class optCOE(Group):
+
+    def __init__(self,nGroups, nPoints, nFull, nTurbs, nDirections):
+
+        super(optCOE, self).__init__()
+
+        interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT = create_rotor_functions()
+
+        for i in range(nGroups):
+            self.add('get_z_param%s'%i, get_z(nPoints)) #have derivatives
+            self.add('get_z_full%s'%i, get_z(nFull)) #have derivatives
+            self.add('Tower%s_max_thrust'%i, Tower(nPoints, nFull), promotes=['L_reinforced','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+            self.add('Tower%s_max_speed'%i, Tower(nPoints, nFull), promotes=['L_reinforced','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+            self.add('bladeLengthComp%s'%i, bladeLengthComp()) #have derivatives
+            self.add('minHeight%s'%i, minHeight()) #have derivatives
+            self.add('freqConstraintGroup%s'%i, freqConstraintGroup())
+
+
+            self.add('Rotor%s'%i, SimpleRotorSE(interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT))
+            self.add('split_I%s'%i, DeMUX(6)) #have derivatives
+            self.add('Myy_estimate%s'%i, Myy_estimate()) #have derivatives
+
+        self.add('Zs', DeMUX(nTurbs)) #have derivatives
+        self.add('hGroups', hGroups(nTurbs, nGroups), promotes=['*']) #have derivatives
+        self.add('getRotorDiameter', getRotorDiameter(nTurbs, nGroups), promotes=['*']) #have derivatives
+        self.add('getRatedPower', getRatedPower(nTurbs, nGroups), promotes=['*'])    #have derivatives
+
+        self.add('COEGroup', COEGroup(nTurbs, nGroups, nDirections, nPoints, nFull), promotes=['*']) #TODO check derivatives?
+
+
+
+
+        self.connect('turbineZ', 'Zs.Array')
+
+        for i in range(nGroups):
+            self.connect('Rotor%s.ratedQ'%i, 'rotor_nacelle_costs%s.rotor_torque'%i)
+
+            self.connect('Rotor%s.blade_mass'%i, 'rotor_nacelle_costs%s.blade_mass'%i)
+            self.connect('Rotor%s.Vrated'%i,'Tower%s_max_thrust.Vel'%i)
+            self.connect('Rotor%s.I'%i, 'split_I%s.Array'%i)
+            self.connect('split_I%s.output%s'%(i,2),'Tower%s_max_speed.It'%i)
+            self.connect('Tower%s_max_speed.It'%i,'Tower%s_max_thrust.It'%i)
+            self.connect('Rotor%s.ratedT'%i,'Tower%s_max_thrust.Fx'%i)
+            self.connect('Rotor%s.extremeT'%i,'Tower%s_max_speed.Fx'%i)
+
+            self.connect('Myy_estimate%s.Myy'%i,'Tower%s_max_thrust.Myy'%i)
+            self.connect('Myy_estimate%s.Myy'%i,'Tower%s_max_speed.Myy'%i)
+
+            self.connect('Tower%s_max_thrust.freq'%i,'freqConstraintGroup%s.freq'%i)
+
+        for i in range(nGroups):
+            self.connect('rotor_nacelle_costs%s.rotor_mass'%i, 'Tower%s_max_speed.rotor_mass'%i)
+            self.connect('rotor_nacelle_costs%s.nacelle_mass'%i, 'Tower%s_max_speed.nacelle_mass'%i)
+
+            self.connect('Tower%s_max_speed.rotor_mass'%i, 'Tower%s_max_thrust.rotor_mass'%i)
+            self.connect('Tower%s_max_speed.nacelle_mass'%i, 'Tower%s_max_thrust.nacelle_mass'%i)
+
+        for j in range(nGroups):
+            self.connect('rotor_diameters%s'%j,'rotor_nacelle_costs%s.rotor_diameter'%j)
+            self.connect('rated_powers%s'%j,'rotor_nacelle_costs%s.machine_rating'%j)
+
+        for i in range(nGroups):
+            self.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+            self.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+            self.connect('get_z_param%s.z_param'%i, 'Tower%s_max_speed.z_param'%i)
+            self.connect('get_z_full%s.z_param'%i, 'Tower%s_max_speed.z_full'%i)
+
+            self.connect('Zs.output%s'%i, 'get_z_param%s.turbineZ'%i)
+            self.connect('Zs.output%s'%i, 'get_z_full%s.turbineZ'%i)
+            self.connect('Zs.output%s'%i, 'Tower%s_max_thrust.L'%i)
+            self.connect('Zs.output%s'%i, 'Tower%s_max_speed.L'%i)
+
+            self.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+            self.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+
+            self.connect('get_z_param%s.z_param'%i, 'TowerDiscretization%s.z_param'%i)
+            self.connect('get_z_full%s.z_param'%i, 'TowerDiscretization%s.z_full'%i)
+            self.connect('rho', 'calcMass%s.rho'%i)
 
 
 if __name__=="__main__":

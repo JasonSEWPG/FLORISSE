@@ -64,18 +64,24 @@ class TestEverything(unittest.TestCase):
         d_param = np.random.rand(3)*2.+4.3
         t_param = np.random.rand(3)*0.006+0.014
 
-        shearExp = 0.12
-        rotorDiameter = np.array([125.4, 70.,150.,155.,141.])
-        rotorDiameter = np.array([126.4, 70.4,150.,155.,141.])
-        turbineZ = np.array([120., 70., 100., 120., 30.])
-        turbineZ = np.array([120., 90., 100., 120., 30.])
-        ratedPower = np.array([4000.,5000.,2000.,3000.,3004.])
+        shearExp = float(np.random.rand(1)*0.21+0.08)
         ratedPower = np.random.rand(4)*9500.+500.
         rotorDiameter = np.random.rand(4)*110.+50.
         turbineZ = np.random.rand(4)*110.+50.
 
-        # ratedPower = np.array([6083.27694832])
-        # rotorDiameter = np.array([171.120132657])
+
+        """for 1 group, in each of the different rated power regions"""
+        # shearExp = 0.12
+        # turbineZ = np.array([100.])
+        # """less than rated power"""
+        # ratedPower = np.array([5050.999])
+        # rotorDiameter = np.array([100.420132657])
+        # """spline region"""
+        # ratedPower = np.array([5050.999])
+        # rotorDiameter = np.array([105.420132657])
+        # """greater than rated power"""
+        # ratedPower = np.array([5050.999])
+        # rotorDiameter = np.array([110.420132657])
 
         """OpenMDAO"""
         start_setup = time()
@@ -204,7 +210,7 @@ class TestEverything(unittest.TestCase):
         prob.driver.opt_settings['Major feasibility tolerance'] = 1.E-5
 
         # obj = 'rotor_nacelle_costs0.transformer_cost'
-        obj = 'AEP'
+        obj = 'COE'
         self.obj = obj
 
         prob.driver.add_objective(obj, scaler=10.)
@@ -284,11 +290,11 @@ class TestEverything(unittest.TestCase):
         # print 'fd'
         # print self.J[(obj, 'turbineY')]['J_fd']
         #
-        # print 'wrt rotorDiameter'
-        # print 'fwd'
-        # print self.J[(obj, 'rotorDiameter0')]['J_fwd']
-        # print 'fd'
-        # print self.J[(obj, 'rotorDiameter0')]['J_fd']
+        print 'wrt rotorDiameter'
+        print 'fwd'
+        print self.J[(obj, 'rotorDiameter0')]['J_fwd']
+        print 'fd'
+        print self.J[(obj, 'rotorDiameter0')]['J_fd']
         #
         # print 'wrt turbineRating'
         # print 'fwd'
@@ -314,9 +320,10 @@ class TestEverything(unittest.TestCase):
         # print 'HubMass: ', prob['rotor_nacelle_costs0.hub_mass']
 
     """GOOD"""
-    # def test_ratedPower(self):
-    #     for i in range(self.nGroups):
-    #         np.testing.assert_allclose(self.J[(self.obj, 'ratedPower%s'%i)]['J_fwd'], self.J[(self.obj, 'ratedPower%s'%i)]['J_fd'], self.rtol, self.atol)
+    def test_ratedPower(self):
+        for i in range(self.nGroups):
+            np.testing.assert_allclose(self.J[(self.obj, 'ratedPower%s'%i)]['J_fwd'], self.J[(self.obj, 'ratedPower%s'%i)]['J_fd'], self.rtol, self.atol)
+            np.testing.assert_allclose(self.J[(self.obj, 'rotorDiameter%s'%i)]['J_fwd'], self.J[(self.obj, 'rotorDiameter%s'%i)]['J_fd'], self.rtol, self.atol)
 
     """GOOD"""
     # def test_rotorDiameter(self):

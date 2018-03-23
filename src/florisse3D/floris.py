@@ -695,6 +695,7 @@ class AEPGroup(Group):
         self.add('dv0', IndepVarComp('windDirections', np.zeros(nDirections), units=direction_units), promotes=['*'])
         self.add('dv1', IndepVarComp('Ueff', np.zeros(nDirections), units=wind_speed_units), promotes=['*'])
         self.add('dv2', IndepVarComp('windFrequencies', np.ones(nDirections)), promotes=['*'])
+        # """I COMMENTED THESE OUT"""
         self.add('dv3', IndepVarComp('turbineX', np.zeros(nTurbines), units='m'), promotes=['*'])
         self.add('dv4', IndepVarComp('turbineY', np.zeros(nTurbines), units='m'), promotes=['*'])
 

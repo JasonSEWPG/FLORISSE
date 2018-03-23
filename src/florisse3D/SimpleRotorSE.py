@@ -7,7 +7,7 @@ from scipy.interpolate import SmoothBivariateSpline
 
 
 class SimpleRotorSE(Component):
-    def __init__(self, ratedTfunc, ratedQfunc, blade_massfunc, Vratedfunc, extremeTfunc, I1func, I2func, I3func):
+    def __init__(self, ratedQfunc, blade_massfunc, Vratedfunc, I1func, I2func, I3func, ratedTfunc, extremeTfunc):
 
         super(SimpleRotorSE, self).__init__()
 
@@ -56,7 +56,14 @@ class SimpleRotorSE(Component):
         extremeT_normal = 240326.697284
 
         # print 'IN COMP: RATING: ', rating
-        # print 'IN COMP: DIAMETER: ', diam
+        # print 'IN COMP: DIAMETER: ', diam/rotorDiameter_normal
+        # print 'IN COMP: blade_mass: ', blade_massfunc(rating/ratedPower_normal,diam/rotorDiameter_normal) * blade_mass_normal
+        # print 'IN COMP: ratedT: ', ratedTfunc(rating/ratedPower_normal,diam/rotorDiameter_normal) * ratedT_normal
+        # print 'IN COMP: Vrated: ', Vratedfunc(rating/ratedPower_normal,diam/rotorDiameter_normal) * Vrated_normal
+        # print blade_massfunc(0.5,0.5)
+        # print blade_massfunc(0.5,0.6)
+        # print blade_massfunc(0.5,0.7)
+        # print blade_massfunc(0.5,0.8)
 
         unknowns['ratedT'] = ratedTfunc(rating/ratedPower_normal,diam/rotorDiameter_normal) * ratedT_normal
         unknowns['ratedQ'] = ratedQfunc(rating/ratedPower_normal,diam/rotorDiameter_normal) * ratedQ_normal
@@ -236,9 +243,21 @@ if __name__=="__main__":
     ax[1][2].plot_surface(X, Y, Z_I3)
     ax[1][3].plot_surface(X, Y, Z_extremeT)
 
-    fig.tight_layout()
-    plt.xlabel('Turbine Rating')
-    plt.ylabel('Rotor Diameter')
-    plt.title('Blade Mass')
+    rp = 0.8
+    diam = np.linspace(0.,1.,1000)
+    mass = np.zeros(1000)
+    for i in range(1000):
+        mass[i] = interp_spline_blade_mass(rp,diam[i])
+    plt.figure(2)
+    plt.plot(diam,mass)
+
+    print interp_spline_blade_mass(0.5,0.5)
+    print interp_spline_blade_mass(0.5,0.6)
+    print interp_spline_blade_mass(0.5,0.7)
+    print interp_spline_blade_mass(0.5,0.8)
+
+    # fig.tight_layout()
+    # plt.xlabel('Turbine Rating')
+    # plt.ylabel('Rotor Diameter')
 
     plt.show()

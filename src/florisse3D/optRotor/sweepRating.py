@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # nDirections = amaliaWind({})
 
     """setup the turbine locations"""
-    nRows = 2
+    nRows = 3
     nTurbs = nRows**2
     nGroups = 1
     spacing = 4.
@@ -27,9 +27,9 @@ if __name__ == '__main__':
     turbineX, turbineY = setupGrid(nRows, rotor_diameter, spacing)
 
 
-    turbineX = np.array([0.,500.])#,0.,500.])
-    turbineY = np.array([0.,0.])#,500.,500.])
-    nTurbs = len(turbineX)
+    # turbineX = np.array([0.,500.])#,0.,500.])
+    # turbineY = np.array([0.,0.])#,500.,500.])
+    # nTurbs = len(turbineX)
 
     nDirections = 2
 
@@ -59,10 +59,16 @@ if __name__ == '__main__':
     turbineZ = np.array([90., 100., 100., 120., 30.])
     ratedPower = np.array([5000.,6000.,2000.,3000.,3004.])
 
-    num = 1
+    ratedPower = np.random.rand(nGroups)*9500.+500.
+    turbineZ = np.random.rand(nGroups)*120.+40.
+    rotorDiameter = np.random.rand(nGroups)*120.+40.
+    ratedPower = np.array([8000.,1000.,2000.,3000.,4000.])
+
+    num = 100
     optH = np.zeros(num)
     optCOE = np.zeros(num)
-    p = np.linspace(1000.,5000.,num)
+    p = np.linspace(2000.,10000.,num)
+    d = np.linspace(46.,160.,num)
 
 
     """OpenMDAO"""
@@ -194,7 +200,7 @@ if __name__ == '__main__':
     simpleSetup(nTurbs, prob)
     # setupSimpleRotorSE()
     prob['Uref'] = np.array([10.,10.])
-    prob['windDirections'] = np.array([90.,91.])
+    prob['windDirections'] = np.array([90.,90.])
     prob['windFrequencies'] = np.array([1.,0.3])
 
     for i in range(nDirections):
@@ -224,33 +230,37 @@ if __name__ == '__main__':
 
     for k in range(num):
         prob['ratedPower0'] = p[k]
+        # prob['rotorDiameter0'] = d[k]
         startRun = time()
         prob.run()
-        COE[k] = prob['COE']
+        COE[k] = prob['Rotor0.blade_mass']
+        # COE[k] = prob['cost']
         AEP[k] = prob['AEP']
-        cost[k] = prob['cost']
+        # AEP[k] = prob['Rotor0.Vrated']
+        # cost[k] = prob['cost']
+        cost[k] = prob['Rotor0.blade_mass']
         print k
 
-    print 'AEP: ', prob['AEP']
-    print 'wakeOverlapTRel: ', prob['direction_group0.wakeOverlapTRel']
-    print 'wakeOverlapTRel: ', prob['direction_group1.wakeOverlapTRel']
-    print 'sum: ', sum(prob['direction_group0.wakeOverlapTRel'])
-    print 'len: ', np.shape((prob['direction_group0.wakeOverlapTRel']))
+    # print 'AEP: ', prob['AEP']
+    # print 'wakeOverlapTRel: ', prob['direction_group0.wakeOverlapTRel']
+    # print 'wakeOverlapTRel: ', prob['direction_group1.wakeOverlapTRel']
+    # print 'sum: ', sum(prob['direction_group0.wakeOverlapTRel'])
+    # print 'len: ', np.shape((prob['direction_group0.wakeOverlapTRel']))
 
 
     plt.figure(1)
-    plt.title('COE')
-    plt.plot(p,COE)
+    plt.title('blade mass')
+    plt.plot(d,COE)
     # plt.show()
 
 
-    plt.figure(2)
-    plt.title('cost')
-    plt.plot(p,cost)
-    # plt.show()
-
-
+    # plt.figure(2)
+    # plt.title('blade mass')
+    # plt.plot(d,cost)
+    # # plt.show()
+    #
+    #
     plt.figure(3)
     plt.title('AEP')
     plt.plot(p,AEP)
-    # plt.show()
+    plt.show()

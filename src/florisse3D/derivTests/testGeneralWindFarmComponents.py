@@ -397,7 +397,45 @@ import numpy as np
 #         np.testing.assert_allclose(self.J[('Myy', 'rotor_diameter')]['J_fwd'], self.J[('Myy', 'rotor_diameter')]['J_fd'], self.rtol, self.atol)
 
 
-class TestBladeLengthComp(unittest.TestCase):
+# class TestBladeLengthComp(unittest.TestCase):
+#
+#
+#     def setUp(self):
+#
+#         self.rtol = 1E-5
+#         self.atol = 1E-5
+#
+#         diameter = float(np.random.rand(1)*100.+35.)
+#
+#         prob = Problem()
+#         root = prob.root = Group()
+#
+#         root.add('rotor_diameter', IndepVarComp('rotor_diameter', float(diameter)), promotes=['*'])
+#         root.add('bladeLengthComp', bladeLengthComp(), promotes=['*'])
+#
+#         prob.driver = pyOptSparseDriver()
+#         prob.driver.options['optimizer'] = 'SNOPT'
+#
+#         prob.driver.add_objective('blade_length')
+#
+#         prob.driver.add_desvar('rotor_diameter')
+#
+#         prob.setup()
+#         prob.run_once()
+#
+#         self.J = prob.check_total_derivatives(out_stream=None)
+#
+#         print 'FWD diameter'
+#         print self.J[('blade_length', 'rotor_diameter')]['J_fwd']
+#         print 'FD diameter'
+#         print self.J[('blade_length', 'rotor_diameter')]['J_fd']
+#
+#
+#     def test(self):
+#         np.testing.assert_allclose(self.J[('blade_length', 'rotor_diameter')]['J_fwd'], self.J[('blade_length', 'rotor_diameter')]['J_fd'], self.rtol, self.atol)
+
+
+class TestSpacingCon(unittest.TestCase):
 
 
     def setUp(self):
@@ -405,35 +443,49 @@ class TestBladeLengthComp(unittest.TestCase):
         self.rtol = 1E-5
         self.atol = 1E-5
 
-        diameter = float(np.random.rand(1)*100.+35.)
+        nTurbines = 7
+        wtSeparationSquared = np.random.rand(int((nTurbines-1.)*nTurbines/2.))*60000.-15000.
+        rotorDiameter = np.random.rand(nTurbines)*100.+50.
+        rotorDiameter = np.arange(nTurbines)*10.
+
 
         prob = Problem()
         root = prob.root = Group()
 
-        root.add('rotor_diameter', IndepVarComp('rotor_diameter', float(diameter)), promotes=['*'])
-        root.add('bladeLengthComp', bladeLengthComp(), promotes=['*'])
+        root.add('wtSeparationSquared', IndepVarComp('wtSeparationSquared', wtSeparationSquared), promotes=['*'])
+        root.add('rotorDiameter', IndepVarComp('rotorDiameter', rotorDiameter), promotes=['*'])
+        root.add('spacing_con', SpacingConstraint(nTurbines), promotes=['*'])
 
         prob.driver = pyOptSparseDriver()
         prob.driver.options['optimizer'] = 'SNOPT'
 
-        prob.driver.add_objective('blade_length')
+        prob.driver.add_objective('spacing_con')
 
-        prob.driver.add_desvar('rotor_diameter')
+        prob.driver.add_desvar('wtSeparationSquared')
+        prob.driver.add_desvar('rotorDiameter')
 
         prob.setup()
         prob.run_once()
 
         self.J = prob.check_total_derivatives(out_stream=None)
 
-        print 'FWD diameter'
-        print self.J[('blade_length', 'rotor_diameter')]['J_fwd']
-        print 'FD diameter'
-        print self.J[('blade_length', 'rotor_diameter')]['J_fd']
+        print 'FWD wtSeparationSquared'
+        print self.J[('spacing_con', 'wtSeparationSquared')]['J_fwd']
+        print 'FD wtSeparationSquared'
+        print self.J[('spacing_con', 'wtSeparationSquared')]['J_fd']
+        print
+        print
+        print 'FWD wtSeparationSquared'
+        print self.J[('spacing_con', 'rotorDiameter')]['J_fwd']
+        print 'FD wtSeparationSquared'
+        print self.J[('spacing_con', 'rotorDiameter')]['J_fd']
 
 
-    def test(self):
-        np.testing.assert_allclose(self.J[('blade_length', 'rotor_diameter')]['J_fwd'], self.J[('blade_length', 'rotor_diameter')]['J_fd'], self.rtol, self.atol)
+    def testwtSeparationSquared(self):
+        np.testing.assert_allclose(self.J[('spacing_con', 'wtSeparationSquared')]['J_fwd'], self.J[('spacing_con', 'wtSeparationSquared')]['J_fd'], self.rtol, self.atol)
 
+    def testrotorDiameter(self):
+        np.testing.assert_allclose(self.J[('spacing_con', 'rotorDiameter')]['J_fwd'], self.J[('spacing_con', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
 
 if __name__ == "__main__":
     unittest.main()

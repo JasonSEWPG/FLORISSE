@@ -395,6 +395,73 @@ class SpacingComp(Component):
         return J
 
 
+class SpacingConstraint(Component):
+    """
+    inter turbine spacing constraint
+    """
+
+    def __init__(self, nTurbines):
+
+        super(SpacingConstraint, self).__init__()
+
+        # Explicitly size input arrays
+        self.add_param('wtSeparationSquared', val=np.zeros(int((nTurbines-1.)*nTurbines/2.)),
+                       desc='spacing of all turbines in the wind farm')
+        self.add_param('rotorDiameter', val=np.zeros(nTurbines),
+                       desc='rotor diameter of each wind turbine')
+
+        # Explicitly size output array
+        self.add_output('spacing_con', val=np.zeros(int((nTurbines-1.)*nTurbines/2.)),
+                        desc='spacing constraint value')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+
+        wtSeparationSquared = params['wtSeparationSquared']
+        rotorDiameter = params['rotorDiameter']
+
+        nTurbines = rotorDiameter.size
+        spacing_con = np.zeros(int((nTurbines-1.)*nTurbines/2.))
+
+        k = 0
+        for i in range(0, nTurbines):
+            for j in range(i+1, nTurbines):
+                spacing_con[k] = wtSeparationSquared[k] - (rotorDiameter[i]+rotorDiameter[j])**2
+                k += 1
+        unknowns['spacing_con'] = spacing_con
+
+    def linearize(self, params, unknowns, resids):
+
+        wtSeparationSquared = params['wtSeparationSquared']
+        rotorDiameter = params['rotorDiameter']
+
+        nTurbines = rotorDiameter.size
+
+        # initialize gradient calculation array
+        ds_dseparation = np.zeros((int((nTurbines-1.)*nTurbines/2.),int((nTurbines-1.)*nTurbines/2.)))
+        ds_ddiameter = np.zeros((int((nTurbines-1.)*nTurbines/2.),nTurbines))
+
+        # set turbine pair counter to zero
+        k = 0
+
+        # calculate the gradient of the distance between each pair of turbines w.r.t. turbineX and turbineY
+        for i in range(0, nTurbines):
+            for j in range(i+1, nTurbines):
+                ds_dseparation[k][k] = 1.
+                ds_ddiameter[k][i] = -2.*rotorDiameter[i]-2.*rotorDiameter[j]
+                ds_ddiameter[k][j] = -2.*rotorDiameter[i]-2.*rotorDiameter[j]
+                k += 1
+
+
+        # initialize Jacobian dict
+        J = {}
+
+        # populate Jacobian dict
+        J['spacing_con', 'wtSeparationSquared'] = ds_dseparation
+        J['spacing_con', 'rotorDiameter'] = ds_ddiameter
+
+        return J
+
+
 class BoundaryComp(Component):
 
     def __init__(self, nTurbines, nVertices):
@@ -947,6 +1014,9 @@ class WindDirectionPower(Component):
         self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW',
                        desc='rated power for each turbine')#, pass_by_obj=True)
 
+        self.add_param('cut_in_speed', np.ones(nTurbines)*3., units='m/s',
+                       desc='cut in wind speed for each turbine')
+
         # outputs
         self.add_output('wtPower%i' % direction_id, np.zeros(nTurbines), units='kW', desc='power output of each turbine')
         self.add_output('dir_power%i' % direction_id, 0.0, units='kW', desc='total power output of the wind farm')
@@ -1023,27 +1093,15 @@ class WindDirectionPower(Component):
                     self.dwtPower_dCp[i][i] = 0.
                     self.dwtPower_drotorDiameter[i][i] = 0.
 
-        # if np.any(rated_velocity+1.) >= np.any(wtVelocity) >= np.any(rated_velocity-1.) and not \
-        #         use_rotor_components:
-        #     for i in range(0, nTurbines):
-        #         if wtVelocity[i] >= rated_velocity[i]+1.:
-        #             spline_start_power = generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]-1., 3))
-        #             deriv_spline_start_power = 3.*generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]-1., 2))
-        #             spline_end_power = generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]+1., 3))
-        #             wtPower[i], deriv = hermite_spline(wtVelocity[i], rated_velocity[i]-1.,
-        #                                                                      rated_velocity[i]+1., spline_start_power,
-        #                                                                      deriv_spline_start_power, spline_end_power, 0.0)
-        #             dwt_power_dvelocitiesTurbines[i][i] = deriv/1000.
-        #
-        # if np.any(wtVelocity) >= np.any(rated_velocity+1.) and not use_rotor_components:
-        #     for i in range(0, nTurbines):
-        #         if wtVelocity[i] >= rated_velocity[i]+1.:
-        #             wtPower = ratedPower
-        #             dwt_power_dvelocitiesTurbines[i][i] = 0.0
+        for i in range(nTurbines):
+            if wtVelocity[i] < params['cut_in_speed'][i]:
+                wtPower[i] = 0.
+                self.dwtPower_dratedPower[i][i] = 0.
+                self.ddir_power_dratedPower[0][i] = 0.
+                self.dwtPower_dwtVelocity[i][i] = 0.
+                self.dwtPower_dCp[i][i] = 0.
+                self.dwtPower_drotorDiameter[i][i] = 0.
 
-
-
-        # self.dwt_power_dvelocitiesTurbines = dwt_power_dvelocitiesTurbines
 
         # calculate total power for this direction
         dir_power = np.sum(wtPower)
