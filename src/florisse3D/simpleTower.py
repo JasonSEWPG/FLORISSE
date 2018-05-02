@@ -261,13 +261,15 @@ class powWindTower(Component):
         speeds = Vel*((z-z0)/(zref-z0))**shearExp
 
         J = {}
+        dspeeds_dV = ((z-z0)/(zref-z0))**shearExp
         dspeeds_dz = np.zeros((nFull, nFull))
         for i in range(nFull):
             if z[i] == 0:
-                z[i] = .0000001 #at z = 0, there is an infinite gradient
+                z[i] = .000000001 #at z = 0, there is an infinite gradient
             dspeeds_dz[i][i] = Vel/((zref-z0)**shearExp)*shearExp*(z[i])**(shearExp-1.)
 
         J['towerSpeeds', 'z_full'] = dspeeds_dz
+        J['towerSpeeds', 'Vel'] = dspeeds_dV
 
         return J
 
@@ -457,6 +459,9 @@ class axial_and_shear(Component):
         qy = params['qy']
         rho = params['rho']
         mrhox = params['mrhox']
+
+        print 'Mxx: ', Mxx
+        print 'Myy: ', Myy
 
         # Fz = m * -9.81
 
@@ -696,6 +701,10 @@ class shellBuckling(Component):
     def __init__(self, nFull):
 
         super(shellBuckling, self).__init__()
+
+        self.deriv_options['form'] = 'central'
+        self.deriv_options['step_size'] = 1.E-6
+        self.deriv_options['step_type'] = 'relative'
 
         self.nFull = nFull
         self.add_param('d_full', np.zeros(nFull), desc='diameter at specified locations')

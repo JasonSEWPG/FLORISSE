@@ -32,7 +32,7 @@ class TestSimpleRotorSE(unittest.TestCase):
         root.add('Rotor', SimpleRotorSE(interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT), promotes=['*'])
 
         #ratedT, ratedQ, blade_mass, Vrated, extremeT, or I
-        obj = 'I'
+        obj = 'blade_mass'
         self.obj = obj
 
         prob.driver.add_objective(obj, scaler=1E-3)

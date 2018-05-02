@@ -269,7 +269,7 @@ if __name__ == '__main__':
     # print 'assign time: ', end_assign - start_assign
 
     startRun = time()
-    prob.run()
+    prob.run_once()
     # print 'run time: ', time()-startRun
     # optH[k] = prob['turbineH0']
     # optCOE[k] = prob['COE']

@@ -34,14 +34,14 @@ print max(I3)
 print max(ratedT)
 print max(extremeT)
 
-newRatedQ = np.zeros(30)
-newRatedPower = np.zeros(30)
-newRotorDiameter = np.zeros(30)
-
-for i in range(30):
-    newRatedQ[i] = ratedQ[i*10]/max(ratedQ)
-    newRatedPower[i] = ratedPower[i*10]/max(ratedPower)
-    newRotorDiameter[i] = rotorDiameter[i*10]/max(rotorDiameter)
+# newRatedQ = np.zeros(30)
+# newRatedPower = np.zeros(30)
+# newRotorDiameter = np.zeros(30)
+#
+# for i in range(30):
+#     newRatedQ[i] = ratedQ[i*10]/max(ratedQ)
+#     newRatedPower[i] = ratedPower[i*10]/max(ratedPower)
+#     newRotorDiameter[i] = rotorDiameter[i*10]/max(rotorDiameter)
 
 results_rated_power = np.zeros((20,20))
 results_rotor_diameter = np.zeros((20,20))
@@ -144,6 +144,8 @@ fig, ax = plt.subplots(subplot_kw={'projection': '3d'})
 #
 # ax[0][1].plot_surface(X, Y, Z_Vrated)
 # ax[0][1].plot(ratedPower, rotorDiameter, Vrated, 'or')
+ax.plot_surface(X, Y, Z_ratedT,cmap=plt.cm.gray)
+ax.plot(ratedPower, rotorDiameter, ratedT, 'ow')
 #
 # ax[0][2].plot_surface(X, Y, Z_ratedQ)
 # ax[0][2].plot(ratedPower, rotorDiameter, ratedQ, 'or')
@@ -155,9 +157,9 @@ fig, ax = plt.subplots(subplot_kw={'projection': '3d'})
 # ax[1][0].plot_surface(X, Y, Z_I1)
 # ax[1][0].plot(ratedPower, rotorDiameter, I1, 'or')
 
-ax.plot_surface(X, Y, Z_ratedQ,cmap=plt.cm.gray)
+# ax.plot_surface(X, Y, Z_ratedQ,cmap=plt.cm.gray)
 # ax.plot(ratedPower, rotorDiameter, ratedQ, 'ow')
-ax.plot(newRatedPower, newRotorDiameter, newRatedQ, 'ow')
+# ax.plot(newRatedPower, newRotorDiameter, newRatedQ, 'ow')
 
 # ax[1][1].plot_surface(X, Y, Z_I2)
 # ax[1][1].plot(ratedPower, rotorDiameter, I2, 'or')
@@ -177,14 +179,14 @@ ax.plot(newRatedPower, newRotorDiameter, newRatedQ, 'ow')
 # # #     # axes.set_zlim(-0.2,1)
 # # #     axes.set_axis_off()
 # #
-plt.axis('off')
+# plt.axis('off')
 fig.tight_layout()
-plt.savefig('fit.pdf', transparent=True)
+# plt.savefig('fit.pdf', transparent=True)
 
 
-# plt.xlabel('Turbine Rating')
-# plt.ylabel('Rotor Diameter')
-# plt.title('Blade Mass')
+plt.xlabel('Turbine Rating')
+plt.ylabel('Rotor Diameter')
+plt.title('Rated Thrust')
 
 #
 # #

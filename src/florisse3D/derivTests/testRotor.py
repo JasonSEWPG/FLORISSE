@@ -130,7 +130,6 @@ class test_Rotor(unittest.TestCase):
 
         """OpenMDAO"""
 
-        start_setup = time()
         prob = Problem()
         root = prob.root = Group()
 

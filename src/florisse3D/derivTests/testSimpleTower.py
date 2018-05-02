@@ -120,107 +120,107 @@ import numpy as np
 #         np.testing.assert_allclose(self.J[('mass', 't_full')]['J_fwd'], self.J[('mass', 't_full')]['J_fd'], self.rtol, self.atol)
 
 
-# class TestTowerDiscretization(unittest.TestCase):
-#
-#
-#     def setUp(self):
-#
-#         self.rtol = 1E-5
-#         self.atol = 1E-5
-#
-#         nPoints = 3
-#         nFull = 15
-#         H = float(np.random.rand(1)*100.+35.)
-#         z_param = np.linspace(0.,H,nPoints)
-#         z_full = np.linspace(0.,H,nFull)
-#
-#         dlow = float(np.random.rand(1)*2.+1.)
-#         dhigh = float(np.random.rand(1)*2.+3.)
-#         d_param = np.linspace(dlow,dhigh,nPoints)
-#
-#         tlow = float(np.random.rand(1)*0.01+0.006)
-#         thigh = float(np.random.rand(1)*0.04+0.016)
-#         t_param = np.linspace(tlow,thigh,nPoints)
-#
-#         prob = Problem()
-#         root = prob.root = Group()
-#
-#         root.add('z_param', IndepVarComp('z_param', z_param), promotes=['*'])
-#         root.add('z_full', IndepVarComp('z_full', z_full), promotes=['*'])
-#         root.add('d_param', IndepVarComp('d_param', d_param), promotes=['*'])
-#         root.add('t_param', IndepVarComp('t_param', t_param), promotes=['*'])
-#         root.add('TowerDiscretization', TowerDiscretization(nPoints, nFull), promotes=['*'])
-#
-#         prob.driver = pyOptSparseDriver()
-#         prob.driver.options['optimizer'] = 'SNOPT'
-#
-#         # prob.driver.add_objective('d_full')
-#         prob.driver.add_objective('t_full')
-#
-#         prob.driver.add_desvar('z_param')
-#         prob.driver.add_desvar('z_full')
-#         prob.driver.add_desvar('d_param')
-#         prob.driver.add_desvar('t_param')
-#
-#         prob.setup()
-#
-#         prob.run_once()
-#
-#         self.J = prob.check_total_derivatives(out_stream=None)
-#
-#         # print 'D_FULL'
-#         # print 'FWD z full'
-#         # print self.J[('d_full', 'z_full')]['J_fwd']
-#         # print 'FD z full'
-#         # print self.J[('d_full', 'z_full')]['J_fd']
-#         #
-#         # print 'FWD z param'
-#         # print self.J[('d_full', 'z_param')]['J_fwd']
-#         # print 'FD z param'
-#         # print self.J[('d_full', 'z_param')]['J_fd']
-#         #
-#         # print 'FWD d'
-#         # print self.J[('d_full', 'd_param')]['J_fwd']
-#         # print 'FD d'
-#         # print self.J[('d_full', 'd_param')]['J_fd']
-#         #
-#         # print 'FWD t'
-#         # print self.J[('d_full', 't_param')]['J_fwd']
-#         # print 'FD t'
-#         # print self.J[('d_full', 't_param')]['J_fd']
-#
-#         print 'T_FULL'
-#         print 'FWD z full'
-#         print self.J[('t_full', 'z_full')]['J_fwd']
-#         print 'FD z full'
-#         print self.J[('t_full', 'z_full')]['J_fd']
-#
-#         print 'FWD z param'
-#         print self.J[('t_full', 'z_param')]['J_fwd']
-#         print 'FD z param'
-#         print self.J[('t_full', 'z_param')]['J_fd']
-#
-#         print 'FWD d'
-#         print self.J[('t_full', 'd_param')]['J_fwd']
-#         print 'FD d'
-#         print self.J[('t_full', 'd_param')]['J_fd']
-#
-#         print 'FWD t'
-#         print self.J[('t_full', 't_param')]['J_fwd']
-#         print 'FD t'
-#         print self.J[('t_full', 't_param')]['J_fd']
-#
-#
-#     def test(self):
-#         # np.testing.assert_allclose(self.J[('d_full', 'z_full')]['J_fwd'], self.J[('d_full', 'z_full')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('d_full', 'z_param')]['J_fwd'], self.J[('d_full', 'z_param')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('d_full', 'd_param')]['J_fwd'], self.J[('d_full', 'd_param')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('d_full', 't_param')]['J_fwd'], self.J[('d_full', 't_param')]['J_fd'], self.rtol, self.atol)
-#
-#         np.testing.assert_allclose(self.J[('t_full', 'z_full')]['J_fwd'], self.J[('t_full', 'z_full')]['J_fd'], self.rtol, self.atol)
-#         np.testing.assert_allclose(self.J[('t_full', 'z_param')]['J_fwd'], self.J[('t_full', 'z_param')]['J_fd'], self.rtol, self.atol)
-#         np.testing.assert_allclose(self.J[('t_full', 'd_param')]['J_fwd'], self.J[('t_full', 'd_param')]['J_fd'], self.rtol, self.atol)
-#         np.testing.assert_allclose(self.J[('t_full', 't_param')]['J_fwd'], self.J[('t_full', 't_param')]['J_fd'], self.rtol, self.atol)
+class TestTowerDiscretization(unittest.TestCase):
+
+
+    def setUp(self):
+
+        self.rtol = 1E-5
+        self.atol = 1E-5
+
+        nPoints = 3
+        nFull = 15
+        H = float(np.random.rand(1)*100.+35.)
+        z_param = np.linspace(0.,H,nPoints)
+        z_full = np.linspace(0.,H,nFull)
+
+        dlow = float(np.random.rand(1)*2.+1.)
+        dhigh = float(np.random.rand(1)*2.+3.)
+        d_param = np.linspace(dlow,dhigh,nPoints)
+
+        tlow = float(np.random.rand(1)*0.01+0.006)
+        thigh = float(np.random.rand(1)*0.04+0.016)
+        t_param = np.linspace(tlow,thigh,nPoints)
+
+        prob = Problem()
+        root = prob.root = Group()
+
+        root.add('z_param', IndepVarComp('z_param', z_param), promotes=['*'])
+        root.add('z_full', IndepVarComp('z_full', z_full), promotes=['*'])
+        root.add('d_param', IndepVarComp('d_param', d_param), promotes=['*'])
+        root.add('t_param', IndepVarComp('t_param', t_param), promotes=['*'])
+        root.add('TowerDiscretization', TowerDiscretization(nPoints, nFull), promotes=['*'])
+
+        prob.driver = pyOptSparseDriver()
+        prob.driver.options['optimizer'] = 'SNOPT'
+
+        # prob.driver.add_objective('d_full')
+        prob.driver.add_objective('t_full')
+
+        prob.driver.add_desvar('z_param')
+        prob.driver.add_desvar('z_full')
+        prob.driver.add_desvar('d_param')
+        prob.driver.add_desvar('t_param')
+
+        prob.setup()
+
+        prob.run_once()
+
+        self.J = prob.check_total_derivatives(out_stream=None)
+
+        # print 'D_FULL'
+        # print 'FWD z full'
+        # print self.J[('d_full', 'z_full')]['J_fwd']
+        # print 'FD z full'
+        # print self.J[('d_full', 'z_full')]['J_fd']
+        #
+        # print 'FWD z param'
+        # print self.J[('d_full', 'z_param')]['J_fwd']
+        # print 'FD z param'
+        # print self.J[('d_full', 'z_param')]['J_fd']
+        #
+        # print 'FWD d'
+        # print self.J[('d_full', 'd_param')]['J_fwd']
+        # print 'FD d'
+        # print self.J[('d_full', 'd_param')]['J_fd']
+        #
+        # print 'FWD t'
+        # print self.J[('d_full', 't_param')]['J_fwd']
+        # print 'FD t'
+        # print self.J[('d_full', 't_param')]['J_fd']
+
+        print 'T_FULL'
+        print 'FWD z full'
+        print self.J[('t_full', 'z_full')]['J_fwd']
+        print 'FD z full'
+        print self.J[('t_full', 'z_full')]['J_fd']
+
+        print 'FWD z param'
+        print self.J[('t_full', 'z_param')]['J_fwd']
+        print 'FD z param'
+        print self.J[('t_full', 'z_param')]['J_fd']
+
+        print 'FWD d'
+        print self.J[('t_full', 'd_param')]['J_fwd']
+        print 'FD d'
+        print self.J[('t_full', 'd_param')]['J_fd']
+
+        print 'FWD t'
+        print self.J[('t_full', 't_param')]['J_fwd']
+        print 'FD t'
+        print self.J[('t_full', 't_param')]['J_fd']
+
+
+    def test(self):
+        # np.testing.assert_allclose(self.J[('d_full', 'z_full')]['J_fwd'], self.J[('d_full', 'z_full')]['J_fd'], self.rtol, self.atol)
+        # np.testing.assert_allclose(self.J[('d_full', 'z_param')]['J_fwd'], self.J[('d_full', 'z_param')]['J_fd'], self.rtol, self.atol)
+        # np.testing.assert_allclose(self.J[('d_full', 'd_param')]['J_fwd'], self.J[('d_full', 'd_param')]['J_fd'], self.rtol, self.atol)
+        # np.testing.assert_allclose(self.J[('d_full', 't_param')]['J_fwd'], self.J[('d_full', 't_param')]['J_fd'], self.rtol, self.atol)
+
+        np.testing.assert_allclose(self.J[('t_full', 'z_full')]['J_fwd'], self.J[('t_full', 'z_full')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('t_full', 'z_param')]['J_fwd'], self.J[('t_full', 'z_param')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('t_full', 'd_param')]['J_fwd'], self.J[('t_full', 'd_param')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('t_full', 't_param')]['J_fwd'], self.J[('t_full', 't_param')]['J_fd'], self.rtol, self.atol)
 
 
 # class testPowWindTower(unittest.TestCase):
@@ -422,11 +422,13 @@ import numpy as np
 #         root = prob.root = Group()
 #
 #         root.add('Fx', IndepVarComp('Fx', Fx), promotes=['*'])
+#         root.add('Fy', IndepVarComp('Fy', 0.), promotes=['*'])
 #         root.add('Fz', IndepVarComp('Fz', Fz), promotes=['*'])
-#         root.add('Mxx', IndepVarComp('Mxx', Mxx), promotes=['*'])
+#         # root.add('Mxx', IndepVarComp('Mxx', Mxx), promotes=['*'])
 #         root.add('Myy', IndepVarComp('Myy', Myy), promotes=['*'])
 #         root.add('m', IndepVarComp('m', m), promotes=['*'])
 #         root.add('qx', IndepVarComp('qx', qx), promotes=['*'])
+#         # root.add('qy', IndepVarComp('qy', 0.), promotes=['*'])
 #
 #         root.add('z_full', IndepVarComp('z_full', z_full), promotes=['*'])
 #         root.add('d_full', IndepVarComp('d_full', d_full), promotes=['*'])
@@ -443,11 +445,13 @@ import numpy as np
 #         prob.driver.add_desvar('t_full')
 #
 #         prob.driver.add_desvar('Fx')
+#         prob.driver.add_desvar('Fy')
 #         prob.driver.add_desvar('Fz')
-#         prob.driver.add_desvar('Mxx')
+#         # prob.driver.add_desvar('Mxx')
 #         prob.driver.add_desvar('Myy')
 #         prob.driver.add_desvar('m')
 #         prob.driver.add_desvar('qx')
+#         # prob.driver.add_desvar('qy')
 #
 #         prob.setup()
 #
@@ -460,7 +464,7 @@ import numpy as np
 #
 #         print 'FWD z'
 #         print self.J[('shear_stress', 'z_full')]['J_fwd']
-#         print 'FD t'
+#         print 'FD z'
 #         print self.J[('shear_stress', 'z_full')]['J_fd']
 #
 #         print 'FWD d'
@@ -478,15 +482,20 @@ import numpy as np
 #         print 'FD Fx'
 #         print self.J[('shear_stress', 'Fx')]['J_fd']
 #
+#         print 'FWD Fy'
+#         print self.J[('shear_stress', 'Fy')]['J_fwd']
+#         print 'FD Fy'
+#         print self.J[('shear_stress', 'Fy')]['J_fd']
+#
 #         print 'FWD Fz'
 #         print self.J[('shear_stress', 'Fz')]['J_fwd']
 #         print 'FD Fz'
 #         print self.J[('shear_stress', 'Fz')]['J_fd']
 #
-#         print 'FWD Mxx'
-#         print self.J[('shear_stress', 'Mxx')]['J_fwd']
-#         print 'FD Mxx'
-#         print self.J[('shear_stress', 'Mxx')]['J_fd']
+#         # print 'FWD Mxx'
+#         # print self.J[('shear_stress', 'Mxx')]['J_fwd']
+#         # print 'FD Mxx'
+#         # print self.J[('shear_stress', 'Mxx')]['J_fd']
 #
 #         print 'FWD Myy'
 #         print self.J[('shear_stress', 'Myy')]['J_fwd']
@@ -497,6 +506,11 @@ import numpy as np
 #         print self.J[('shear_stress', 'qx')]['J_fwd']
 #         print 'FD qx'
 #         print self.J[('shear_stress', 'qx')]['J_fd']
+#
+#         # print 'FWD qy'
+#         # print self.J[('shear_stress', 'qy')]['J_fwd']
+#         # print 'FD qy'
+#         # print self.J[('shear_stress', 'qy')]['J_fd']
 #
 #         print 'FWD m'
 #         print self.J[('shear_stress', 'm')]['J_fwd']
@@ -510,7 +524,7 @@ import numpy as np
 #         np.testing.assert_allclose(self.J[('shear_stress', 't_full')]['J_fwd'], self.J[('shear_stress', 't_full')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('shear_stress', 'Fx')]['J_fwd'], self.J[('shear_stress', 'Fx')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('shear_stress', 'Fz')]['J_fwd'], self.J[('shear_stress', 'Fz')]['J_fd'], self.rtol, self.atol)
-#         np.testing.assert_allclose(self.J[('shear_stress', 'Mxx')]['J_fwd'], self.J[('shear_stress', 'Mxx')]['J_fd'], self.rtol, self.atol)
+#         # np.testing.assert_allclose(self.J[('shear_stress', 'Mxx')]['J_fwd'], self.J[('shear_stress', 'Mxx')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('shear_stress', 'Myy')]['J_fwd'], self.J[('shear_stress', 'Myy')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('shear_stress', 'qx')]['J_fwd'], self.J[('shear_stress', 'qx')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('shear_stress', 'm')]['J_fwd'], self.J[('shear_stress', 'm')]['J_fd'], self.rtol, self.atol)
@@ -591,65 +605,65 @@ import numpy as np
 #
 #         self.J = prob.check_total_derivatives(out_stream=None)
 #
-#         # print 'FWD z'
-#         # print self.J[('axial_stress', 'z_full')]['J_fwd']
-#         # print 'FD t'
-#         # print self.J[('axial_stress', 'z_full')]['J_fd']
-#         #
-#         # print 'FWD d'
-#         # print self.J[('axial_stress', 'd_full')]['J_fwd']
-#         # print 'FD d'
-#         # print self.J[('axial_stress', 'd_full')]['J_fd']
-#         #
-#         # print 'FWD t'
-#         # print self.J[('axial_stress', 't_full')]['J_fwd']
-#         # print 'FD t'
-#         # print self.J[('axial_stress', 't_full')]['J_fd']
-#         #
-#         # print 'FWD Fx'
-#         # print self.J[('axial_stress', 'Fx')]['J_fwd']
-#         # print 'FD Fx'
-#         # print self.J[('axial_stress', 'Fx')]['J_fd']
+#         print 'FWD z'
+#         print self.J[('axial_stress', 'z_full')]['J_fwd']
+#         print 'FD t'
+#         print self.J[('axial_stress', 'z_full')]['J_fd']
 #
-#         # print 'FWD Fz'
-#         # print self.J[('axial_stress', 'Fz')]['J_fwd']
-#         # print 'FD Fz'
-#         # print self.J[('axial_stress', 'Fz')]['J_fd']
+#         print 'FWD d'
+#         print self.J[('axial_stress', 'd_full')]['J_fwd']
+#         print 'FD d'
+#         print self.J[('axial_stress', 'd_full')]['J_fd']
+#
+#         print 'FWD t'
+#         print self.J[('axial_stress', 't_full')]['J_fwd']
+#         print 'FD t'
+#         print self.J[('axial_stress', 't_full')]['J_fd']
+#         #
+#         print 'FWD Fx'
+#         print self.J[('axial_stress', 'Fx')]['J_fwd']
+#         print 'FD Fx'
+#         print self.J[('axial_stress', 'Fx')]['J_fd']
+#
+#         print 'FWD Fz'
+#         print self.J[('axial_stress', 'Fz')]['J_fwd']
+#         print 'FD Fz'
+#         print self.J[('axial_stress', 'Fz')]['J_fd']
 #
 #         #TODO THERE ARE DIFFERENT, but I think the analytic gradients are still good
-#         # print 'FWD Mxx'
-#         # print self.J[('axial_stress', 'Mxx')]['J_fwd']
-#         # print 'FD Mxx'
-#         # print self.J[('axial_stress', 'Mxx')]['J_fd']
+#         print 'FWD Mxx'
+#         print self.J[('axial_stress', 'Mxx')]['J_fwd']
+#         print 'FD Mxx'
+#         print self.J[('axial_stress', 'Mxx')]['J_fd']
 #
 #         #TODO fail but look good!
-#         # print 'FWD Myy'
-#         # print self.J[('axial_stress', 'Myy')]['J_fwd']
-#         # print 'FD Myy'
-#         # print self.J[('axial_stress', 'Myy')]['J_fd']
+#         print 'FWD Myy'
+#         print self.J[('axial_stress', 'Myy')]['J_fwd']
+#         print 'FD Myy'
+#         print self.J[('axial_stress', 'Myy')]['J_fd']
 #
 #         #TODO sometimes fail but look good!
-#         # print 'FWD qx'
-#         # print self.J[('axial_stress', 'qx')]['J_fwd']
-#         # print 'FD qx'
-#         # print self.J[('axial_stress', 'qx')]['J_fd']
+#         print 'FWD qx'
+#         print self.J[('axial_stress', 'qx')]['J_fwd']
+#         print 'FD qx'
+#         print self.J[('axial_stress', 'qx')]['J_fd']
 #
 #         #TODO fail but look good!
-#         # print 'FWD m'
-#         # print self.J[('axial_stress', 'm')]['J_fwd']
-#         # print 'FD m'
-#         # print self.J[('axial_stress', 'm')]['J_fd']
+#         print 'FWD m'
+#         print self.J[('axial_stress', 'm')]['J_fwd']
+#         print 'FD m'
+#         print self.J[('axial_stress', 'm')]['J_fd']
 #
 #
 #     def test(self):
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'z_full')]['J_fwd'], self.J[('axial_stress', 'z_full')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'd_full')]['J_fwd'], self.J[('axial_stress', 'd_full')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 't_full')]['J_fwd'], self.J[('axial_stress', 't_full')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'Fx')]['J_fwd'], self.J[('axial_stress', 'Fx')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'Fz')]['J_fwd'], self.J[('axial_stress', 'Fz')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'Mxx')]['J_fwd'], self.J[('axial_stress', 'Mxx')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'Myy')]['J_fwd'], self.J[('axial_stress', 'Myy')]['J_fd'], self.rtol, self.atol)
-#         # np.testing.assert_allclose(self.J[('axial_stress', 'qx')]['J_fwd'], self.J[('axial_stress', 'qx')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'z_full')]['J_fwd'], self.J[('axial_stress', 'z_full')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'd_full')]['J_fwd'], self.J[('axial_stress', 'd_full')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 't_full')]['J_fwd'], self.J[('axial_stress', 't_full')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'Fx')]['J_fwd'], self.J[('axial_stress', 'Fx')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'Fz')]['J_fwd'], self.J[('axial_stress', 'Fz')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'Mxx')]['J_fwd'], self.J[('axial_stress', 'Mxx')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'Myy')]['J_fwd'], self.J[('axial_stress', 'Myy')]['J_fd'], self.rtol, self.atol)
+#         np.testing.assert_allclose(self.J[('axial_stress', 'qx')]['J_fwd'], self.J[('axial_stress', 'qx')]['J_fd'], self.rtol, self.atol)
 #         np.testing.assert_allclose(self.J[('axial_stress', 'm')]['J_fwd'], self.J[('axial_stress', 'm')]['J_fd'], self.rtol, self.atol)
 
 # class testShellBuckling(unittest.TestCase):

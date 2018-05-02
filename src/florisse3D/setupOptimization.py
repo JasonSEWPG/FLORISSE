@@ -488,7 +488,7 @@ def amaliaWind_23(prob):
 
 
 def amaliaLayout():
-    locations = np.loadtxt('src/florisse3D/layout_amalia.txt')
+    locations = np.loadtxt('/Users/ningrsrch/Dropbox/Programs/FLORISSE3D/src/florisse3D/layout_amalia.txt')
     turbineX = locations[:, 0]
     turbineY = locations[:, 1]
 
@@ -619,13 +619,32 @@ def setup_weibull(windDirections,windFrequencies,windSpeeds,nSpeeds):
     return dirs, freqs, speeds
 
 if __name__=="__main__":
-    windDirections = np.array([0.,90.,180.,270.])
-    windSpeeds = np.array([10.,12.,5.,5.8])
-    windFrequencies = np.array([0.2,0.5,0.1,0.2])
-    nSpeeds = 5
+    # windDirections = np.array([0.,90.,180.,270.])
+    # windSpeeds = np.array([10.,12.,5.,5.8])
+    # windFrequencies = np.array([0.2,0.5,0.1,0.2])
+    # nSpeeds = 5
+    #
+    # dirs, freqs, speeds = setup_weibull(windDirections,windFrequencies,windSpeeds,nSpeeds)
+    # print 'dirs: ', dirs
+    # print 'freqs: ', freqs
+    # print 'speeds: ', speeds
+    # print sum(freqs)
 
-    dirs, freqs, speeds = setup_weibull(windDirections,windFrequencies,windSpeeds,nSpeeds)
-    print 'dirs: ', dirs
-    print 'freqs: ', freqs
-    print 'speeds: ', speeds
-    print sum(freqs)
+    def Weibull(x,L):
+        k = 1.76
+        if L < 0.0001:
+            L = 0.0001
+        return (k/L)*(x/L)**(k-1)*np.exp(-(x/L)**k)
+
+    import matplotlib.pyplot as plt
+    x = np.linspace(0.,25.,1000)
+    # L = 6.53163342
+    L = 10.35446959
+    f = Weibull(x,L)
+    plt.plot(x,f,linewidth=2)
+    plt.ylim(0.,0.15)
+    plt.xlabel('Wind Speed (m/s)',fontsize=20,family='serif')
+    plt.ylabel('Frequency',fontsize=20,family='serif')
+    plt.title('Weibull Distibution, L=10.35 m/s',fontsize=20,family='serif')
+    plt.savefig('weibull_10.35.pdf',transparent=True)
+    plt.show()

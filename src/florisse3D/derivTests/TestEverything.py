@@ -57,17 +57,22 @@ class TestEverything(unittest.TestCase):
         yaw = np.zeros((nDirections, nTurbs))
 
         nPoints = 3
-        nFull = 15
+        nFull = 5
 
         d_param = np.array([6.3,5.3,4.3])
         t_param = np.array([0.02,0.01,0.006])
-        d_param = np.random.rand(3)*2.+4.3
-        t_param = np.random.rand(3)*0.006+0.014
+        # d_param = np.random.rand(3)*2.+4.3
+        # t_param = np.random.rand(3)*0.006+0.014
 
-        shearExp = float(np.random.rand(1)*0.21+0.08)
-        ratedPower = np.random.rand(4)*9500.+500.
-        rotorDiameter = np.random.rand(4)*110.+50.
-        turbineZ = np.random.rand(4)*110.+50.
+        # shearExp = float(np.random.rand(1)*0.21+0.08)
+        # ratedPower = np.random.rand(4)*9500.+500.
+        # rotorDiameter = np.random.rand(4)*110.+50.
+        # turbineZ = np.random.rand(4)*110.+50.
+
+        shearExp = 0.13
+        ratedPower = np.ones(nGroups)*4000.
+        rotorDiameter = np.ones(nGroups)*108.
+        turbineZ = np.ones(nGroups)*129.
 
 
         """for 1 group, in each of the different rated power regions"""
@@ -211,6 +216,8 @@ class TestEverything(unittest.TestCase):
 
         # obj = 'rotor_nacelle_costs0.transformer_cost'
         obj = 'COE'
+        obj = 'Tower0_max_thrust.shear_stress'
+        # obj = 'Rotor0.extremeT'
         self.obj = obj
 
         prob.driver.add_objective(obj, scaler=10.)
@@ -272,11 +279,11 @@ class TestEverything(unittest.TestCase):
         # pass results to self for use with unit test
         self.J = prob.check_total_derivatives(out_stream=None)
 
-        print 'ratedPower0: ', prob['ratedPower0']
-        print 'rotorDiameter0: ', prob['rotorDiameter0']
-        print 'turbineH0: ', prob['turbineH0']
-        print 'd_param0: ', prob['d_param0']
-        print 't_param0: ', prob['t_param0']
+        # print 'ratedPower0: ', prob['ratedPower0']
+        # print 'rotorDiameter0: ', prob['rotorDiameter0']
+        # print 'turbineH0: ', prob['turbineH0']
+        # print 'd_param0: ', prob['d_param0']
+        # print 't_param0: ', prob['t_param0']
 
         # print 'wrt x'
         # print 'fwd'
@@ -289,12 +296,105 @@ class TestEverything(unittest.TestCase):
         # print self.J[(obj, 'turbineY')]['J_fwd']
         # print 'fd'
         # print self.J[(obj, 'turbineY')]['J_fd']
-        #
+
+        print 'wrt d_param'
+        print 'fwd'
+        print self.J[(obj, 'd_param0')]['J_fwd']
+        print 'fd'
+        print self.J[(obj, 'd_param0')]['J_fd']
+
+        print 'wrt t_param'
+        print 'fwd'
+        print self.J[(obj, 't_param0')]['J_fwd']
+        print 'fd'
+        print self.J[(obj, 't_param0')]['J_fd']
+
         print 'wrt rotorDiameter'
         print 'fwd'
         print self.J[(obj, 'rotorDiameter0')]['J_fwd']
         print 'fd'
         print self.J[(obj, 'rotorDiameter0')]['J_fd']
+
+        print 'wrt turbineH'
+        print 'fwd'
+        print self.J[(obj, 'turbineH0')]['J_fwd']
+        print 'fd'
+        print self.J[(obj, 'turbineH0')]['J_fd']
+
+        print 'wrt ratedPower'
+        print 'fwd'
+        print self.J[(obj, 'ratedPower0')]['J_fwd']
+        print 'fd'
+        print self.J[(obj, 'ratedPower0')]['J_fd']
+
+        # print 'Tower0_max_thrust.shell_buckling'
+        # # print 'turbineX: ',      'FWD: ', self.J['Tower0_max_thrust.shell_buckling','turbineX']['J_fwd'],'FD: ', self.J['Tower0_max_thrust.shell_buckling','turbineX']['J_fd']
+        # # print 'turbineY: ',      'FWD: ', self.J['Tower0_max_thrust.shell_buckling','turbineY']['J_fwd']      , 'FD: ', self.J['Tower0_max_thrust.shell_buckling','turbineY']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'd_param: ',       'FWD: ', self.J['Tower0_max_thrust.shell_buckling','d_param0']['J_fwd']      , 'FD: ', self.J['Tower0_max_thrust.shell_buckling','d_param0']['J_fd']
+        # # print 't_param: ',       'FWD: ', self.J['Tower0_max_thrust.shell_buckling','t_param0']['J_fwd']      , 'FD: ', self.J['Tower0_max_thrust.shell_buckling','t_param0']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'turbineH: ',      'FWD: ', self.J['Tower0_max_thrust.shell_buckling','turbineH0']['J_fwd']     , 'FD: ', self.J['Tower0_max_thrust.shell_buckling','turbineH0']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'rotorDiameter: ', 'FWD: ', self.J['Tower0_max_thrust.shell_buckling','rotorDiameter0']['J_fwd'], 'FD: ',   self.J['Tower0_max_thrust.shell_buckling','rotorDiameter0']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'ratedPower: ',    'FWD: ', self.J['Tower0_max_thrust.shell_buckling','ratedPower0']['J_fwd']   , 'FD: ',   self.J['Tower0_max_thrust.shell_buckling','ratedPower0']['J_fd']
+        #
+        #
+        # print 'Tower0_max_speed.shell_buckling'
+        # # print 'turbineX: ',      'FWD: ', self.J['Tower0_max_speed.shell_buckling','turbineX']['J_fwd']      , 'FD: ', self.J['Tower0_max_speed.shell_buckling','turbineX']['J_fd']
+        # # print 'turbineY: ',      'FWD: ', self.J['Tower0_max_speed.shell_buckling','turbineY']['J_fwd']      , 'FD: ', self.J['Tower0_max_speed.shell_buckling','turbineY']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'd_param: ',       'FWD: ', self.J['Tower0_max_speed.shell_buckling','d_param0']['J_fwd']      , 'FD: ', self.J['Tower0_max_speed.shell_buckling','d_param0']['J_fd']
+        # # print 't_param: ',       'FWD: ', self.J['Tower0_max_speed.shell_buckling','t_param0']['J_fwd']      , 'FD: ', self.J['Tower0_max_speed.shell_buckling','t_param0']['J_fd']
+        # print '!!!!!!!!!!!!!!! '
+        # print 'turbineH: ',      'FWD: ', self.J['Tower0_max_speed.shell_buckling','turbineH0']['J_fwd']     , 'FD: ', self.J['Tower0_max_speed.shell_buckling','turbineH0']['J_fd']
+        # # print 'rotorDiameter: ', 'FWD: ', self.J['Tower0_max_speed.shell_buckling','rotorDiameter0']['J_fwd'], 'FD: ', self.J['Tower0_max_speed.shell_buckling','rotorDiameter0']['J_fd']
+        # # print 'ratedPower: ',    'FWD: ', self.J['Tower0_max_speed.shell_buckling','ratedPower0']['J_fwd']   , 'FD: ', self.J['Tower0_max_speed.shell_buckling','ratedPower0']['J_fd']
+
+
+        # d_param:  FWD:  [[-0.20512128  0.00392093  0.00132166]
+        #  [-0.14919244 -0.14395245  0.0026644 ]
+        #  [-0.         -0.48280209  0.00778987]
+        #  [-0.         -0.18469007 -0.17932639]
+        #  [-0.         -0.         -0.24702679]] FD:  [[-0.20464792  0.00844846  0.00574011]
+        #  [-0.14897996 -0.13837979  0.00961609]
+        #  [ 0.         -0.47593875  0.02160504]
+        #  [ 0.         -0.18261455 -0.16994654]
+        #  [ 0.          0.         -0.24702672]]
+
+
+        # d_param:  FWD:  [[-0.20512128  0.00392093  0.00132166]
+        #  [-0.14919244 -0.14395245  0.0026644 ]
+        #  [-0.         -0.48280209  0.00778987]
+        #  [-0.         -0.18469007 -0.17932639]
+        #  [-0.         -0.         -0.24702679]] FD:  [[-0.20464792  0.00844846  0.00574011]
+        #  [-0.14897996 -0.13837979  0.00961609]
+        #  [ 0.         -0.47593875  0.02160504]
+        #  [ 0.         -0.18261455 -0.16994654]
+        #  [ 0.          0.         -0.24702672]]
+
+
+        # print 'freqConstraintGroup0.freqConstraint'
+        # print 'turbineX: ',      'FWD: ', self.J['freqConstraintGroup0.freqConstraint','turbineX']['J_fwd']     , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','turbineX']['J_fd']
+        # print 'turbineY: ',      'FWD: ', self.J['freqConstraintGroup0.freqConstraint','turbineY']['J_fwd']      , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','turbineY']['J_fd']
+        # print 'd_param: ',       'FWD: ', self.J['freqConstraintGroup0.freqConstraint','d_param0']['J_fwd']      , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','d_param0']['J_fd']
+        # print 't_param: ',       'FWD: ', self.J['freqConstraintGroup0.freqConstraint','t_param0']['J_fwd']      , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','t_param0']['J_fd']
+        # print 'turbineH: ',      'FWD: ', self.J['freqConstraintGroup0.freqConstraint','turbineH0']['J_fwd']     , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','turbineH0']['J_fd']
+        # print 'rotorDiameter: ', 'FWD: ', self.J['freqConstraintGroup0.freqConstraint','rotorDiameter0']['J_fwd'], 'FD: ', self.J['freqConstraintGroup0.freqConstraint','rotorDiameter0']['J_fd']
+        # print 'ratedPower: ',    'FWD: ', self.J['freqConstraintGroup0.freqConstraint','ratedPower0']['J_fwd']   , 'FD: ', self.J['freqConstraintGroup0.freqConstraint','ratedPower0']['J_fd']
+
+
+        # print 'minHeight0.minHeight'
+        # print 'turbineX: ',      'FWD: ', self.J['minHeight0.minHeight','turbineX']['J_fwd']      , 'FD: ', self.J['minHeight0.minHeight','turbineX']['J_fd']
+        # print 'turbineY: ',      'FWD: ', self.J['minHeight0.minHeight','turbineY']['J_fwd']      , 'FD: ', self.J['minHeight0.minHeight','turbineY']['J_fd']
+        # print 'd_param: ',       'FWD: ', self.J['minHeight0.minHeight','d_param0']['J_fwd']      , 'FD: ', self.J['minHeight0.minHeight','d_param0']['J_fd']
+        # print 't_param: ',       'FWD: ', self.J['minHeight0.minHeight','t_param0']['J_fwd']      , 'FD: ', self.J['minHeight0.minHeight','t_param0']['J_fd']
+        # print 'turbineH: ',      'FWD: ', self.J['minHeight0.minHeight','turbineH0']['J_fwd']     , 'FD: ', self.J['minHeight0.minHeight','turbineH0']['J_fd']
+        # print 'rotorDiameter: ', 'FWD: ', self.J['minHeight0.minHeight','rotorDiameter0']['J_fwd'], 'FD: ', self.J['minHeight0.minHeight','rotorDiameter0']['J_fd']
+        # print 'ratedPower: ',    'FWD: ', self.J['minHeight0.minHeight','ratedPower0']['J_fwd']   , 'FD: ', self.J['minHeight0.minHeight','ratedPower0']['J_fd']
+
+
         #
         # print 'wrt turbineRating'
         # print 'fwd'

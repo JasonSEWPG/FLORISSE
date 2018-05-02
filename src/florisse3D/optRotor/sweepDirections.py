@@ -95,7 +95,7 @@ if __name__ == '__main__':
     rotorDiameter = np.array([126.4,126.4])
     turbineZ = np.array([90.,90.])
 
-    numDirs = 1
+    numDirs = 30
     numSpeeds = 1
     COE = np.zeros((numDirs,numSpeeds))
     AEP = np.zeros((numDirs,numSpeeds))
@@ -105,7 +105,8 @@ if __name__ == '__main__':
 
     for k in range(numDirs):
         for l in range(numSpeeds):
-            nDirs = 10+k
+            # nDirs = 23+k
+            nDirs = k+2
             nSpeeds = l+2
             dirs, freqs, speeds = amaliaRose(nDirs)
             # print freqs
@@ -261,9 +262,11 @@ if __name__ == '__main__':
     print 'nSpeeds = np.', repr(nS)
     print 'COE = np.', repr(COE)
     print 'AEP = np.', repr(AEP)
-    # plt.figure(1)
-    # plt.title('COE')
-    # plt.plot(nSpeeds,COE,linewidth=2)
+
+    plt.figure(1)
+    plt.title('COE')
+    plt.plot(nD,AEP[0],'ob',markersize=5)
+
     #
     # plt.figure(2)
     # plt.title('AEP')
@@ -273,4 +276,4 @@ if __name__ == '__main__':
     # plt.title('cost')
     # plt.plot(nSpeeds,cost,linewidth=2)
     #
-    # plt.show()
+    plt.show()

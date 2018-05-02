@@ -435,28 +435,34 @@ AEP = np. array([[  5.80920952e+08,   7.82885356e+08,   7.31876814e+08,
 
 for i in range(len(nDirections)):
     plt.figure(i+1)
-    plt.plot(nSpeeds[i],COE[i])
-    plt.plot(np.array([0.,16.]),np.array([COEtrue*0.985,COEtrue*0.985]),'y',linewidth=2)
-    plt.plot(np.array([0.,16.]),np.array([COEtrue*1.015,COEtrue*1.015]),'y',linewidth=2)
-    plt.ylim(48.,52.)
-    plt.title('COE nDirections = %s'%nDirections[i][0])
-    plt.xlabel('nSpeeds')
-    plt.ylabel('COE')
+    plt.plot(nSpeeds[i],AEP[i],'ob')
+    plt.plot(np.array([0.,16.]),np.array([AEPtrue*0.98,AEPtrue*0.98]),'r',linewidth=2,label='2% Error')
+    plt.plot(np.array([0.,16.]),np.array([AEPtrue*1.02,AEPtrue*1.02]),'r',linewidth=2)
+    # plt.ylim(48.,52.)
+    plt.ylim(7.E8,8.E8)
+    # plt.title('COE nDirections = %s'%nDirections[i][0],fontsize=20,family='serif')
+    plt.title('Wind Speed Convergence',fontsize=20,family='serif')
+    plt.xlabel('nSpeeds',fontsize=20,family='serif')
+    plt.ylabel('AEP',fontsize=20,family='serif')
+    plt.legend(loc=4,fontsize=20)
 # plt.show()
 
 for i in range(15):
     plt.figure(i+1+30)
     for j in range(30):
-        plt.scatter(nDirections[j][i],COE[j][i])
-        print 'COE[j][i]: ', COE[j][i]
+        plt.plot(nDirections[j][i],AEP[j][i],'ob')
+        print 'COE[j][i]: ', AEP[j][i]
         print 'nDirections[j][i]: ', nDirections[j][i]
-    plt.plot(np.array([0.,50.]),np.array([COEtrue*0.985,COEtrue*0.985]),'y',linewidth=2)
-    plt.plot(np.array([0.,50.]),np.array([COEtrue*1.015,COEtrue*1.015]),'y',linewidth=2)
-    plt.title('COE Speed = %s'%nSpeeds[0][i])
-    plt.xlabel('nDirections')
-    plt.ylabel('COE')
-    plt.ylim(48.,52.)
+    plt.plot(np.array([0.,50.]),np.array([AEPtrue*0.98,AEPtrue*0.98]),'r',linewidth=2,label='2% Error')
+    plt.plot(np.array([0.,50.]),np.array([AEPtrue*1.02,AEPtrue*1.02]),'r',linewidth=2)
+    # plt.title('COE Speed = %s'%nSpeeds[0][i],fontsize=20,family='serif')
+    plt.title('Wind Direction Convergence',fontsize=20,family='serif')
+    plt.xlabel('nDirections',fontsize=20,family='serif')
+    plt.ylabel('AEP',fontsize=20,family='serif')
+    # plt.ylim(48.,52.)
+    plt.ylim(7.E8,8.E8)
     plt.xlim(0.,40.)
+    plt.legend(loc=4,fontsize=20)
 
 
 plt.show()
