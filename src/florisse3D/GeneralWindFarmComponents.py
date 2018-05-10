@@ -332,9 +332,9 @@ class SpacingComp(Component):
         # self.deriv_options['step_calc'] = 'relative'
 
         # Explicitly size input arrays
-        self.add_param('turbineX', val=np.zeros(nTurbines),
+        self.add_param('turbineX', val=np.zeros(nTurbines), units='m',
                        desc='x coordinates of turbines in wind dir. ref. frame')
-        self.add_param('turbineY', val=np.zeros(nTurbines),
+        self.add_param('turbineY', val=np.zeros(nTurbines), units='m',
                        desc='y coordinates of turbines in wind dir. ref. frame')
 
         # Explicitly size output array
@@ -407,7 +407,7 @@ class SpacingConstraint(Component):
         # Explicitly size input arrays
         self.add_param('wtSeparationSquared', val=np.zeros(int((nTurbines-1.)*nTurbines/2.)),
                        desc='spacing of all turbines in the wind farm')
-        self.add_param('rotorDiameter', val=np.zeros(nTurbines),
+        self.add_param('rotorDiameter', val=np.ones(nTurbines)*126.4, units='m',
                        desc='rotor diameter of each wind turbine')
 
         # Explicitly size output array

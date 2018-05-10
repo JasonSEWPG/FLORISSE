@@ -696,8 +696,8 @@ class AEPGroup(Group):
         self.add('dv1', IndepVarComp('Ueff', np.zeros(nDirections), units=wind_speed_units), promotes=['*'])
         self.add('dv2', IndepVarComp('windFrequencies', np.ones(nDirections)), promotes=['*'])
         # """I COMMENTED THESE OUT"""
-        self.add('dv3', IndepVarComp('turbineX', np.zeros(nTurbines), units='m'), promotes=['*'])
-        self.add('dv4', IndepVarComp('turbineY', np.zeros(nTurbines), units='m'), promotes=['*'])
+        # self.add('dv3', IndepVarComp('turbineX', np.zeros(nTurbines), units='m'), promotes=['*'])
+        # self.add('dv4', IndepVarComp('turbineY', np.zeros(nTurbines), units='m'), promotes=['*'])
 
         #self.add('dv13', IndepVarComp('turbineZ', np.zeros(nTurbines), units='m'), promotes=['*'])
         #self.add('dv5', IndepVarComp('turbineH1', 0., units='m'), promotes=['*'])
@@ -771,7 +771,7 @@ class AEPGroup(Group):
         # connect components
         self.connect('windDirections', 'windDirectionsDeMUX.Array')
         for direction_id in np.arange(0, nDirections):
-            self.add('y%i' % direction_id, IndepVarComp('yaw%i' % direction_id, np.zeros(nTurbines), units='deg'), promotes=['*'])
+            # self.add('y%i' % direction_id, IndepVarComp('yaw%i' % direction_id, np.zeros(nTurbines), units='deg'), promotes=['*'])
             self.connect('windDirectionsDeMUX.output%i' % direction_id, 'direction_group%i.wind_direction' % direction_id)
             self.connect('organizeWindSpeeds.output%i' %direction_id, 'direction_group%i.wind_speed' %direction_id)
             self.connect('dir_power%i' % direction_id, 'powerMUX.input%i' % direction_id)
