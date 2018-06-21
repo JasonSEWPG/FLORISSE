@@ -463,80 +463,96 @@ class SpacingConstraint(Component):
 
 
 class BoundaryComp(Component):
-
     def __init__(self, nTurbines, nVertices):
-
         super(BoundaryComp, self).__init__()
-
         self.nTurbines = nTurbines
         self.nVertices = nVertices
-
-        # Explicitly size input arrays
-        self.add_param('boundaryVertices', np.zeros([nVertices, 2]), units='m', pass_by_obj=True,
-                       desc="vertices of the convex hull CCW in order s.t. boundaryVertices[i] -> first point of face"
-                            "for unit_normals[i]")
-        self.add_param('boundaryNormals', np.zeros([nVertices, 2]), pass_by_obj=True,
-                       desc="unit normal vector for each boundary face CCW where boundaryVertices[i] is "
-                            "the first point of the corresponding face")
+        if nVertices > 1:
+            self.type = type = 'polygon'
+        elif nVertices == 1:
+            self.type = type = 'circle'
+        else:
+            ValueError('nVertices in BoundaryComp must be greater than 0')
+        if type == 'polygon':
+            #     Explicitly size input arrays
+            self.add_param('boundaryVertices', np.zeros([nVertices, 2]), units='m', pass_by_obj=True,
+                           desc="vertices of the convex hull CCW in order s.t. boundaryVertices[i] -> first point of face"
+                                "for unit_normals[i]")
+            self.add_param('boundaryNormals', np.zeros([nVertices, 2]), pass_by_obj=True,
+                           desc="unit normal vector for each boundary face CCW where boundaryVertices[i] is "
+                                "the first point of the corresponding face")
+        elif type == 'circle':
+            self.add_param('boundary_radius', val=1000., units='m', pass_by_obj=True, desc='radius of wind farm boundary')
+            self.add_param('boundary_center', val=np.array([0., 0.]), units='m', pass_by_obj=True,
+                           desc='x and y positions of circular wind farm boundary center')
+        else:
+            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
+                        %(type))
         self.add_param('turbineX', np.zeros(nTurbines), units='m',
                        desc='x coordinates of turbines in global ref. frame')
         self.add_param('turbineY', np.zeros(nTurbines), units='m',
                        desc='y coordinates of turbines in global ref. frame')
-
         # Explicitly size output array
         # (vector with positive elements if turbines outside of hull)
         self.add_output('boundaryDistances', np.zeros([nTurbines, nVertices]),
                         desc="signed perpendicular distance from each turbine to each face CCW; + is inside")
-
     def solve_nonlinear(self, params, unknowns, resids):
-
         turbineX = params['turbineX']
         turbineY = params['turbineY']
-
-        # put locations in correct arrangement for calculations
-        locations = np.zeros([self.nTurbines, 2])
-        for i in range(0, self.nTurbines):
-            locations[i] = np.array([turbineX[i], turbineY[i]])
-
-        # print "in comp, locs are: ", locations
-
-        # calculate distance from each point to each face
-        unknowns['boundaryDistances'] = calculate_distance(locations,
-                                                           params['boundaryVertices'], params['boundaryNormals'])
-
+        if self.type == 'polygon':
+            # put locations in correct arrangement for calculations
+            locations = np.zeros([self.nTurbines, 2])
+            for i in range(0, self.nTurbines):
+                locations[i] = np.array([turbineX[i], turbineY[i]])
+            # print "in comp, locs are: ", locations
+            # calculate distance from each point to each face
+            unknowns['boundaryDistances'] = calculate_distance(locations,
+                                                               params['boundaryVertices'], params['boundaryNormals'])
+        elif self.type == 'circle':
+            xc = params['boundary_center'][0]
+            yc = params['boundary_center'][1]
+            r = params['boundary_radius']
+            unknowns['boundaryDistances'] = r**2 - (np.power((turbineX - xc), 2) + np.power((turbineY - yc), 2))
+        else:
+            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
+                        %(type))
     def linearize(self, params, unknowns, resids):
-
-        unit_normals = params['boundaryNormals']
-
-        # initialize array to hold distances from each point to each face
-        dfaceDistance_dx = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
-        dfaceDistance_dy = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
-
-        for i in range(0, self.nTurbines):
-            # determine if point is inside or outside of each face, and distance from each face
-            for j in range(0, self.nVertices):
-
-                # define the derivative vectors from the point of interest to the first point of the face
-                dpa_dx = np.array([-1.0, 0.0])
-                dpa_dy = np.array([0.0, -1.0])
-
-                # find perpendicular distance derivatives from point to current surface (vector projection)
-                ddistanceVec_dx = np.vdot(dpa_dx, unit_normals[j])*unit_normals[j]
-                ddistanceVec_dy = np.vdot(dpa_dy, unit_normals[j])*unit_normals[j]
-
-                # calculate derivatives for the sign of perpendicular distance from point to current face
-                dfaceDistance_dx[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dx, unit_normals[j])
-                dfaceDistance_dy[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dy, unit_normals[j])
-
+        if self.type == 'polygon':
+            unit_normals = params['boundaryNormals']
+            # initialize array to hold distances from each point to each face
+            dfaceDistance_dx = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
+            dfaceDistance_dy = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
+            for i in range(0, self.nTurbines):
+                # determine if point is inside or outside of each face, and distance from each face
+                for j in range(0, self.nVertices):
+                    # define the derivative vectors from the point of interest to the first point of the face
+                    dpa_dx = np.array([-1.0, 0.0])
+                    dpa_dy = np.array([0.0, -1.0])
+                    # find perpendicular distance derivatives from point to current surface (vector projection)
+                    ddistanceVec_dx = np.vdot(dpa_dx, unit_normals[j])*unit_normals[j]
+                    ddistanceVec_dy = np.vdot(dpa_dy, unit_normals[j])*unit_normals[j]
+                    # calculate derivatives for the sign of perpendicular distance from point to current face
+                    dfaceDistance_dx[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dx, unit_normals[j])
+                    dfaceDistance_dy[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dy, unit_normals[j])
+        elif self.type == 'circle':
+            turbineX = params['turbineX']
+            turbineY = params['turbineY']
+            xc = params['boundary_center'][0]
+            yc = params['boundary_center'][1]
+            A = np.eye(self.nTurbines, self.nTurbines)
+            B =  - 2. * (turbineX - xc)
+            C =  - 2. * (turbineY - yc)
+            dfaceDistance_dx = A*B
+            dfaceDistance_dy = A*C
+        else:
+            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
+                       % (type))
         # initialize Jacobian dict
         J = {}
-
         # return Jacobian dict
         J['boundaryDistances', 'turbineX'] = dfaceDistance_dx
         J['boundaryDistances', 'turbineY'] = dfaceDistance_dy
-
         return J
-
 
 class MUX(Component):
     """ Connect input elements into a single array  """

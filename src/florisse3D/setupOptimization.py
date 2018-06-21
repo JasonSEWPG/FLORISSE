@@ -641,10 +641,10 @@ if __name__=="__main__":
     # L = 6.53163342
     L = 10.35446959
     f = Weibull(x,L)
-    plt.plot(x,f,linewidth=2)
+    plt.plot(x,f,linewidth=2,alpha=0.25)
     plt.ylim(0.,0.15)
     plt.xlabel('Wind Speed (m/s)',fontsize=20,family='serif')
     plt.ylabel('Frequency',fontsize=20,family='serif')
     plt.title('Weibull Distibution, L=10.35 m/s',fontsize=20,family='serif')
-    plt.savefig('weibull_10.35.pdf',transparent=True)
+    # plt.savefig('weibull_10.35.pdf',transparent=True)
     plt.show()

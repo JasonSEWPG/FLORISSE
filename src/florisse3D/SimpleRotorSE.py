@@ -201,6 +201,21 @@ def create_rotor_functions():
 
 
 if __name__=="__main__":
+    filename = 'src/florisse3D/optRotor/BEST_DATA.txt'
+    opened = open(filename)
+    data = np.loadtxt(opened)
+    "ratedPower, rotorDiameter, ratedQ, blade_mass, Vrated, I1, I2, I3, ratedT, extremeT"
+    ratedPower = data[:,0]
+    rotorDiameter = data[:,1]
+    ratedQ = data[:,2]
+    blade_mass = data[:,3]
+    Vrated = data[:,4]
+    I1 = data[:,5]
+    I2 = data[:,6]
+    I3 = data[:,7]
+    ratedT = data[:,8]
+    extremeT = data[:,9]
+
     interp_spline_ratedQ, interp_spline_blade_mass, interp_spline_Vrated, interp_spline_I1, interp_spline_I2, interp_spline_I3, interp_spline_ratedT, interp_spline_extremeT = create_rotor_functions()
 
     num = 100
@@ -230,31 +245,60 @@ if __name__=="__main__":
             Z_ratedT[j][i] = interp_spline_ratedT(x[i],y[j])
             Z_extremeT[j][i] = interp_spline_extremeT(x[i],y[j])
 
-    fig, ax = plt.subplots(nrows=2, ncols=4, subplot_kw={'projection': '3d'})
+    # fig, ax = plt.subplots(nrows=2, ncols=4, subplot_kw={'projection': '3d'})
+    # # fig = plt.figure()
+    # # ax = fig.add_subplot(111, projection='3d')
+    #
+    # ax[0][0].plot_surface(X, Y, Z_blade_mass,alpha=0.25)
+    # ax[0][1].plot_surface(X, Y, Z_Vrated,alpha=0.25)
+    # ax[0][2].plot_surface(X, Y, Z_ratedQ,alpha=0.25)
+    # ax[0][3].plot_surface(X, Y, Z_ratedT,alpha=0.25)
+    # ax[1][0].plot_surface(X, Y, Z_I1,alpha=0.25)
+    # ax[1][1].plot_surface(X, Y, Z_I2,alpha=0.25)
+    # ax[1][2].plot_surface(X, Y, Z_I3,alpha=0.25)
+    # ax[1][3].plot_surface(X, Y, Z_extremeT,alpha=0.25)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, subplot_kw={'projection': '3d'})
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
 
-    ax[0][0].plot_surface(X, Y, Z_blade_mass)
-    ax[0][1].plot_surface(X, Y, Z_Vrated)
-    ax[0][2].plot_surface(X, Y, Z_ratedQ)
-    ax[0][3].plot_surface(X, Y, Z_ratedT)
-    ax[1][0].plot_surface(X, Y, Z_I1)
-    ax[1][1].plot_surface(X, Y, Z_I2)
-    ax[1][2].plot_surface(X, Y, Z_I3)
-    ax[1][3].plot_surface(X, Y, Z_extremeT)
+    ax.plot_surface(X, Y, Z_extremeT,alpha=0.25)
+    ax.set_xlabel('Rated Power',fontsize=20,family='serif', labelpad=10)
+    ax.set_ylabel('Rotor Diameter',fontsize=20,family='serif', labelpad=10)
+    ax.set_zlabel('Extreme Thrust',fontsize=20,family='serif', labelpad=10)
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    ax.tick_params(axis='both', which='minor', labelsize=16)
+    # plt.savefig('extreme_thrust.pdf',transparent=True)
+    plt.tight_layout()
+    # ax[0][1].plot_surface(X, Y, Z_Vrated,alpha=0.25)
+    # ax[0][2].plot_surface(X, Y, Z_ratedQ,alpha=0.25)
+    # ax[0][3].plot_surface(X, Y, Z_ratedT,alpha=0.25)
+    # ax[1][0].plot_surface(X, Y, Z_I1,alpha=0.25)
+    # ax[1][1].plot_surface(X, Y, Z_I2,alpha=0.25)
+    # ax[1][2].plot_surface(X, Y, Z_I3,alpha=0.25)
+    # ax[1][3].plot_surface(X, Y, Z_extremeT,alpha=0.25)
 
-    rp = 0.8
-    diam = np.linspace(0.,1.,1000)
-    mass = np.zeros(1000)
-    for i in range(1000):
-        mass[i] = interp_spline_blade_mass(rp,diam[i])
-    plt.figure(2)
-    plt.plot(diam,mass)
+    # ax[0][0].plot(X, Y, Z_blade_mass,alpha=0.25)
+    # ax[0][1].plot(X, Y, Z_Vrated,alpha=0.25)
+    # ax[0][2].plot(X, Y, Z_ratedQ,alpha=0.25)
+    # ax[0][3].plot(X, Y, Z_ratedT,alpha=0.25)
+    # ax[1][0].plot(X, Y, Z_I1,alpha=0.25)
+    # ax[1][1].plot(X, Y, Z_I2,alpha=0.25)
+    # ax[1][2].plot(X, Y, Z_I3,alpha=0.25)
+    # ax[1][3].plot(X, Y, Z_extremeT,alpha=0.25)
 
-    print interp_spline_blade_mass(0.5,0.5)
-    print interp_spline_blade_mass(0.5,0.6)
-    print interp_spline_blade_mass(0.5,0.7)
-    print interp_spline_blade_mass(0.5,0.8)
+    # rp = 0.8
+    # diam = np.linspace(0.,1.,1000)
+    # mass = np.zeros(1000)
+    # for i in range(1000):
+    #     mass[i] = interp_spline_blade_mass(rp,diam[i])
+    # # plt.figure(2)
+    # # plt.plot(diam,mass)
+    #
+    # print interp_spline_blade_mass(0.5,0.5)
+    # print interp_spline_blade_mass(0.5,0.6)
+    # print interp_spline_blade_mass(0.5,0.7)
+    # print interp_spline_blade_mass(0.5,0.8)
 
     # fig.tight_layout()
     # plt.xlabel('Turbine Rating')
