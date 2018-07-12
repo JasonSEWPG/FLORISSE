@@ -158,7 +158,8 @@ class SimpleRotorSE(Component):
 def create_rotor_functions():
 
     #loading data
-    filename = 'src/florisse3D/optRotor/BEST_DATA.txt'
+    # filename = 'src/florisse3D/optRotor/BEST_DATA.txt'
+    filename = '/Users/ningrsrch/Dropbox/Projects/Variable_Turbine/BEST_DATA.txt'
     opened = open(filename)
     data = np.loadtxt(opened)
     "ratedPower, rotorDiameter, ratedQ, blade_mass, Vrated, I1, I2, I3, ratedT, extremeT"
@@ -185,8 +186,13 @@ def create_rotor_functions():
     ratedT = ratedT/max(ratedT)
     extremeT = extremeT/max(extremeT)
 
-    w = np.ones(len(ratedPower))*2.
-    order = 2
+    # w = np.ones(len(ratedPower))*2.
+    # order = 2
+
+    order = 5
+    w = np.zeros(len(rotorDiameter))
+    for i in range(len(rotorDiameter)):
+        w[i] = np.exp(abs(ratedPower[i]-0.5))*np.exp(abs(rotorDiameter[i]-0.8))
 
     interp_spline_ratedQ = SmoothBivariateSpline(ratedPower,rotorDiameter,ratedQ,w,kx=order,ky=order)
     interp_spline_blade_mass = SmoothBivariateSpline(ratedPower,rotorDiameter,blade_mass,w,kx=order,ky=order)
