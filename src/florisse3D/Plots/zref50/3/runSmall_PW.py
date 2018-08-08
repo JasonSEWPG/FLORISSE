@@ -185,6 +185,7 @@ if __name__ == '__main__':
     t_param = np.array([1.373755823634198632e-02, 8.961345551353992744e-03, 6.069695887100739172e-03])
 
     turbineZ = np.array([6.556977525499463866e+01])
+    turbineZ = np.array([90.])
 
     """OpenMDAO"""
 
@@ -203,10 +204,10 @@ if __name__ == '__main__':
 
     root.add('Zs', DeMUX(nTurbs))
     root.add('hGroups', hGroups(nTurbs,nGroups), promotes=['*'])
-    # root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
-    #             use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
-    #             optimizingLayout=False, nSamples=0), promotes=['*'])
-    root.add('COEGroup', COEGroup(nTurbs, nGroups, nDirections, nPoints, nFull), promotes=['*'])
+    root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
+                use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
+                optimizingLayout=False, nSamples=0), promotes=['*'])
+    root.add('COEGroup', COEGroup(nTurbs, nGroups), promotes=['*'])
 
     root.connect('turbineZ', 'Zs.Array')
     for i in range(nGroups):
@@ -299,4 +300,6 @@ if __name__ == '__main__':
     print 'AEP: ', prob['AEP']
     print 'COE: ', prob['COE']
     print 'cost: ', prob['cost']
+    print 'd: ', prob['rotorDiameter']
     # 7.973416978975259894e+01 2.293186460008625686e+08
+    # 8.504107990423464969e+01 2.473283094171800613e+08

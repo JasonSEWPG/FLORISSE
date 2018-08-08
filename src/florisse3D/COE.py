@@ -232,34 +232,46 @@ class COEComponent(Component):
         return J
 
 
+# class COEGroup(Group):
+#     """
+#     Group containing components ot calculate COEGroup
+#     """
+#     def __init__(self, nTurbines, nGroups, nDirections, nPoints, nFull):
+#
+#         super(COEGroup, self).__init__()
+#
+#         self.add('farmCost', farmCost(nTurbines, nGroups), promotes=['*'])
+#         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
+#         for i in range(nGroups):
+#             self.add('rotor_nacelle_costs%s'%i, cost_group_variableRotorStudy(), promotes=['bearing_number'])#, promotes=['turbine_class','blade_has_carbon','bearing_number'])
+#             self.add('calcMass%s'%i, calcMass(nFull))
+#             self.add('TowerDiscretization%s'%i, TowerDiscretization(nPoints, nFull))
+#         self.add('rotorCostComponent', rotorCostComponent(nTurbines, nGroups), promotes=['*'])
+#         self.add('nacelleCostComponent', nacelleCostComponent(nTurbines, nGroups), promotes=['*'])
+#         self.add('BOSgroup', BOSgroup(nTurbines), promotes=['*'])
+#         self.add('AEPGroup', AEPGroup(nTurbines, nDirections=nDirections,
+#                     use_rotor_components=False, differentiable=True,
+#                     optimizingLayout=False, nSamples=0), promotes=['*'])
+#
+#         for i in range(nGroups):
+#             self.connect('rotor_nacelle_costs%s.rotor_cost'%i,'rotorCost%s'%i)
+#             self.connect('rotor_nacelle_costs%s.nacelle_cost'%i,'nacelleCost%s'%i)
+#             self.connect('TowerDiscretization%s.z_full'%i,'calcMass%s.z_full'%i)
+#             self.connect('TowerDiscretization%s.d_full'%i,'calcMass%s.d_full'%i)
+#             self.connect('TowerDiscretization%s.t_full'%i,'calcMass%s.t_full'%i)
+#             self.connect('calcMass%s.mass'%i,'mass%s'%i)
+
 class COEGroup(Group):
     """
     Group containing components ot calculate COEGroup
     """
-    def __init__(self, nTurbines, nGroups, nDirections, nPoints, nFull):
+    def __init__(self, nTurbines, nGroups):
 
         super(COEGroup, self).__init__()
 
         self.add('farmCost', farmCost(nTurbines, nGroups), promotes=['*'])
         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
-        for i in range(nGroups):
-            self.add('rotor_nacelle_costs%s'%i, cost_group_variableRotorStudy(), promotes=['bearing_number'])#, promotes=['turbine_class','blade_has_carbon','bearing_number'])
-            # self.add('calcMass%s'%i, calcMass(nFull))
-            # self.add('TowerDiscretization%s'%i, TowerDiscretization(nPoints, nFull))
-        self.add('rotorCostComponent', rotorCostComponent(nTurbines, nGroups), promotes=['*'])
-        self.add('nacelleCostComponent', nacelleCostComponent(nTurbines, nGroups), promotes=['*'])
         self.add('BOSgroup', BOSgroup(nTurbines), promotes=['*'])
-        self.add('AEPGroup', AEPGroup(nTurbines, nDirections=nDirections,
-                    use_rotor_components=False, differentiable=True,
-                    optimizingLayout=False, nSamples=0), promotes=['*'])
-
-        for i in range(nGroups):
-            self.connect('rotor_nacelle_costs%s.rotor_cost'%i,'rotorCost%s'%i)
-            self.connect('rotor_nacelle_costs%s.nacelle_cost'%i,'nacelleCost%s'%i)
-            # self.connect('TowerDiscretization%s.z_full'%i,'calcMass%s.z_full'%i)
-            # self.connect('TowerDiscretization%s.d_full'%i,'calcMass%s.d_full'%i)
-            # self.connect('TowerDiscretization%s.t_full'%i,'calcMass%s.t_full'%i)
-            # self.connect('calcMass%s.mass'%i,'mass%s'%i)
 
 
 if __name__=="__main__":
