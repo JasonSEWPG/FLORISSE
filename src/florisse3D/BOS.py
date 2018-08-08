@@ -108,7 +108,7 @@ class accessRoadCost(Component):
         super(accessRoadCost, self).__init__()
 
         self.nTurbines = nTurbines
-        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, desc='rotor diameter')
+        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, units='m', desc='rotor diameter')
 
         self.add_output('access_road_cost', 0.0, desc='access road cost')
 
@@ -144,9 +144,9 @@ class foundationCost(Component):
         super(foundationCost, self).__init__()
 
         self.nTurbines = nTurbines
-        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, desc='rotor diameter')
+        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, units='m', desc='rotor diameter')
         self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='the hub heights of each turbine')
-        self.add_param('ratedPower', np.ones(nTurbines)*5000., desc='rated power array')
+        self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW', desc='rated power array')
 
         self.add_output('foundation_cost', 0.0, desc='foundation cost')
 
@@ -195,7 +195,7 @@ class erectionCost(Component):
 
         self.nTurbines = nTurbines
         self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='the hub heights of each turbine')
-        self.add_param('ratedPower', np.ones(nTurbines)*5000., desc='rated power array')
+        self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW', desc='rated power array')
 
         self.add_output('erection_cost', 0.0, desc='erection cost')
 
@@ -231,7 +231,7 @@ class electircalMaterialsCost(Component):
         super(electircalMaterialsCost, self).__init__()
 
         self.nTurbines = nTurbines
-        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, desc='rotor diameter')
+        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, units='m', desc='rotor diameter')
 
         self.add_output('electrical_materials_cost', 0.0, desc='electrical materials cost')
 
@@ -267,7 +267,7 @@ class electircalInstallationCost(Component):
         super(electircalInstallationCost, self).__init__()
 
         self.nTurbines = nTurbines
-        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, desc='rotor diameter')
+        self.add_param('rotorDiameter', np.ones(nTurbines)*126.4, units='m', desc='rotor diameter')
 
         self.add_output('electrical_installation_cost', 0.0, desc='electrical installation cost')
 
@@ -307,7 +307,7 @@ class insuranceCost(Component):
         self.nTurbines = nTurbines
         self.add_param('cost', 0.0, desc='TCC (whole farm)')
         self.add_param('foundation_cost', 0.0, desc='foundation costs')
-        self.add_param('ratedPower', np.ones(nTurbines)*5000., desc='rated power array')
+        self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW', desc='rated power array')
 
         self.add_output('insurance_cost', 0.0, desc='insurance cost')
         self.add_output('alpha_insurance', 0.0, desc='alpha insurance')

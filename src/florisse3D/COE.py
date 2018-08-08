@@ -150,7 +150,6 @@ class farmCost(Component):
         # print 'ROTOR COST: ', rotor_cost
         # print 'NACELLE COST: ', nacelle_cost
         # print 'TOWER COST: ', tower_cost
-
         parts_cost_farm = nacelle_cost + rotor_cost + np.sum(tower_cost) #parts cost for the entire wind farm
         turbine_multiplier = 4./3.
         turbine_cost = turbine_multiplier * parts_cost_farm
@@ -245,8 +244,8 @@ class COEGroup(Group):
         self.add('COEComponent', COEComponent(nTurbines), promotes=['*'])
         for i in range(nGroups):
             self.add('rotor_nacelle_costs%s'%i, cost_group_variableRotorStudy(), promotes=['bearing_number'])#, promotes=['turbine_class','blade_has_carbon','bearing_number'])
-            self.add('calcMass%s'%i, calcMass(nFull))
-            self.add('TowerDiscretization%s'%i, TowerDiscretization(nPoints, nFull))
+            # self.add('calcMass%s'%i, calcMass(nFull))
+            # self.add('TowerDiscretization%s'%i, TowerDiscretization(nPoints, nFull))
         self.add('rotorCostComponent', rotorCostComponent(nTurbines, nGroups), promotes=['*'])
         self.add('nacelleCostComponent', nacelleCostComponent(nTurbines, nGroups), promotes=['*'])
         self.add('BOSgroup', BOSgroup(nTurbines), promotes=['*'])
@@ -257,10 +256,10 @@ class COEGroup(Group):
         for i in range(nGroups):
             self.connect('rotor_nacelle_costs%s.rotor_cost'%i,'rotorCost%s'%i)
             self.connect('rotor_nacelle_costs%s.nacelle_cost'%i,'nacelleCost%s'%i)
-            self.connect('TowerDiscretization%s.z_full'%i,'calcMass%s.z_full'%i)
-            self.connect('TowerDiscretization%s.d_full'%i,'calcMass%s.d_full'%i)
-            self.connect('TowerDiscretization%s.t_full'%i,'calcMass%s.t_full'%i)
-            self.connect('calcMass%s.mass'%i,'mass%s'%i)
+            # self.connect('TowerDiscretization%s.z_full'%i,'calcMass%s.z_full'%i)
+            # self.connect('TowerDiscretization%s.d_full'%i,'calcMass%s.d_full'%i)
+            # self.connect('TowerDiscretization%s.t_full'%i,'calcMass%s.t_full'%i)
+            # self.connect('calcMass%s.mass'%i,'mass%s'%i)
 
 
 if __name__=="__main__":

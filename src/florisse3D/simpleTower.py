@@ -90,6 +90,12 @@ class calcMass(Component):
         rho = params['rho']
         nFull = self.nFull
 
+        print params['z_full']
+        print params['d_full']
+        print params['t_full']
+        print params['rho']
+        print self.nFull
+
         sectionMass = np.zeros(nFull-1)
         for i in range(nFull-1):
             outer = 1./3.*pi*((d[i]/2.)**2+(d[i]/2.)*(d[i+1]/2.)+ \
@@ -104,6 +110,7 @@ class calcMass(Component):
         # top_inner = 1./3.*3.141592653589793*((r[1]-t[1])**2+(r[1]-t[1])*(r[2]-t[2])+(r[2]-t[2])**2)*H/2.
 
         # unknowns['mass'] = (bottom_outer + top_outer - bottom_inner - top_inner)*rho
+        print 'tower masses: ', np.sum(sectionMass)
         unknowns['mass'] = np.sum(sectionMass)
 
     def linearize(self, params, unknowns, resids):

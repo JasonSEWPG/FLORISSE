@@ -3,8 +3,8 @@ from openmdao.api import Group, Problem, IndepVarComp, pyOptSparseDriver
 from FLORISSE3D.setupOptimization import *
 from FLORISSE3D.simpleTower import Tower
 from FLORISSE3D.GeneralWindFarmComponents import calculate_boundary, SpacingComp,\
-            BoundaryComp, get_z, getTurbineZ, AEPobj, DeMUX, hGroups, randomStart,\
-            getRotorDiameter, Loads
+            BoundaryComp, get_z, getTurbineZ, AEPobj, DeMUX, hGroups, randomStart
+            # getRotorDiameter, Loads
 from FLORISSE3D.COE import COEGroup
 from FLORISSE3D.floris import AEPGroup
 import cPickle as pickle
@@ -194,18 +194,18 @@ if __name__ == '__main__':
                 optimizingLayout=False, nSamples=0), promotes=['*'])
     root.add('COEGroup', COEGroup(nTurbs, nGroups), promotes=['*'])
 
-    root.add('spacing_comp', SpacingComp(nTurbines=nTurbs), promotes=['*'])
+    # root.add('spacing_comp', SpacingComp(nTurbines=nTurbs), promotes=['*'])
 
     # add constraint definitions
-    root.add('spacing_con', ExecComp('sc = wtSeparationSquared-(minSpacing*rotorDiameter[0])**2',
-                                 minSpacing=minSpacing, rotorDiameter=np.zeros(nTurbs),
-                                 sc=np.zeros(((nTurbs-1)*nTurbs/2)),
-                                 wtSeparationSquared=np.zeros(((nTurbs-1)*nTurbs/2))),
-                                 promotes=['*'])
+    # root.add('spacing_con', ExecComp('sc = wtSeparationSquared-(minSpacing*rotorDiameter[0])**2',
+    #                              minSpacing=minSpacing, rotorDiameter=np.zeros(nTurbs),
+    #                              sc=np.zeros(((nTurbs-1)*nTurbs/2)),
+    #                              wtSeparationSquared=np.zeros(((nTurbs-1)*nTurbs/2))),
+    #                              promotes=['*'])
 
-    if nVertices > 0:
+    # if nVertices > 0:
         # add component that enforces a convex hull wind farm boundary
-        root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
+        # root.add('boundary_con', BoundaryComp(nVertices=nVertices, nTurbines=nTurbs), promotes=['*'])
 
     root.connect('turbineZ', 'Zs.Array')
     for i in range(nGroups):
@@ -320,22 +320,22 @@ if __name__ == '__main__':
         print 'Max Thrust Frequecty: ', prob['Tower%s_max_thrust.freq'%i]
         print 'Max Speed Frequency: ', prob['Tower%s_max_speed.freq'%i]
 
-    print 'Max thrust Fx: ', prob['Loads0.Fx1']
-    print 'Max thrust Fy: ', prob['Loads0.Fy1']
-    print 'Max thrust Fz: ', prob['Loads0.Fz1']
-    print 'Max speed Fx: ', prob['Loads0.Fx2']
-    print 'Max speed Fy: ', prob['Loads0.Fy2']
-    print 'Max speed Fz: ', prob['Loads0.Fz2']
-
-    print 'Max thrust Mxx: ', prob['Loads0.Mxx1']
-    print 'Max thrust Myy: ', prob['Loads0.Myy1']
-    print 'Max thrust Mzz: ', prob['Loads0.Mzz1']
-    print 'Max speed Mxx: ', prob['Loads0.Mxx2']
-    print 'Max speed Myy: ', prob['Loads0.Myy2']
-    print 'Max speed Mzz: ', prob['Loads0.Mzz2']
-
-    print 'mIzz: ', prob['Loads%s.mIzz'%i]
-    print 'm: ', prob['Loads%s.m'%i]
+    # print 'Max thrust Fx: ', prob['Loads0.Fx1']
+    # print 'Max thrust Fy: ', prob['Loads0.Fy1']
+    # print 'Max thrust Fz: ', prob['Loads0.Fz1']
+    # print 'Max speed Fx: ', prob['Loads0.Fx2']
+    # print 'Max speed Fy: ', prob['Loads0.Fy2']
+    # print 'Max speed Fz: ', prob['Loads0.Fz2']
+    #
+    # print 'Max thrust Mxx: ', prob['Loads0.Mxx1']
+    # print 'Max thrust Myy: ', prob['Loads0.Myy1']
+    # print 'Max thrust Mzz: ', prob['Loads0.Mzz1']
+    # print 'Max speed Mxx: ', prob['Loads0.Mxx2']
+    # print 'Max speed Myy: ', prob['Loads0.Myy2']
+    # print 'Max speed Mzz: ', prob['Loads0.Mzz2']
+    #
+    # print 'mIzz: ', prob['Loads%s.mIzz'%i]
+    # print 'm: ', prob['Loads%s.m'%i]
 
 
 
