@@ -6,11 +6,11 @@ from openmdao.core.mpi_wrap import MPI
 if MPI:
     from openmdao.api import PetscKSP
 
-from GeneralWindFarmComponents import WindFrame, AdjustCtCpYaw, MUX, WindFarmAEP, DeMUX, \
-    DeMUXArrays, CPCT_Interpolate_Gradients_Smooth, WindDirectionPower, add_gen_params_IdepVarComps, \
-    CPCT_Interpolate_Gradients, organizeWindSpeeds, getUeffintegrate, PowWind
+from FLORISSE3D.GeneralWindFarmComponents import WindFrame, AdjustCtCpYaw, MUX, WindFarmAEP, DeMUX, \
+    CPCT_Interpolate_Gradients_Smooth, WindDirectionPower, add_gen_params_IdepVarComps, \
+    CPCT_Interpolate_Gradients, organizeWindSpeeds, PowWind
 
-from florisse import config
+from FLORISSE3D import config
 import _floris
 import _florisDiscontinuous
 

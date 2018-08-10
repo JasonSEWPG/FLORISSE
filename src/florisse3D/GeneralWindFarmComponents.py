@@ -7,7 +7,6 @@ import numpy as np
 from scipy import interp
 from scipy.io import loadmat
 from scipy.spatial import ConvexHull
-from scipy.interpolate import CubicSpline
 import random
 
 def add_gen_params_IdepVarComps(openmdao_group, datasize):
@@ -147,7 +146,7 @@ class AdjustCtCpYaw(Component):
         # self.deriv_options['step_size'] = 500.
         # self.deriv_options['step_calc'] = 'relative'
         #
-        # if not differentiable:
+	# if not differentiable:
         #     self.deriv_options['type'] = 'fd'
         #     self.deriv_options['form'] = 'forward'
 
@@ -332,13 +331,13 @@ class SpacingComp(Component):
         # self.deriv_options['step_calc'] = 'relative'
 
         # Explicitly size input arrays
-        self.add_param('turbineX', val=np.zeros(nTurbines), units='m',
+        self.add_param('turbineX', val=np.zeros(nTurbines),
                        desc='x coordinates of turbines in wind dir. ref. frame')
-        self.add_param('turbineY', val=np.zeros(nTurbines), units='m',
+        self.add_param('turbineY', val=np.zeros(nTurbines),
                        desc='y coordinates of turbines in wind dir. ref. frame')
 
         # Explicitly size output array
-        self.add_output('wtSeparationSquared', val=np.zeros((nTurbines-1.)*nTurbines/2.),
+        self.add_output('wtSeparationSquared', val=np.zeros((nTurbines-1)*nTurbines/2),
                         desc='spacing of all turbines in the wind farm')
 
     def solve_nonlinear(self, params, unknowns, resids):
@@ -347,10 +346,10 @@ class SpacingComp(Component):
         turbineX = params['turbineX']
         turbineY = params['turbineY']
         nTurbines = turbineX.size
-        separation_squared = np.zeros((nTurbines-1.)*nTurbines/2.)
+        separation_squared = np.zeros((nTurbines-1)*nTurbines/2)
 
         k = 0
-        for i in range(0, nTurbines):
+	for i in range(0, nTurbines):
             for j in range(i+1, nTurbines):
                 separation_squared[k] = (turbineX[j]-turbineX[i])**2+(turbineY[j]-turbineY[i])**2
                 k += 1
@@ -366,12 +365,12 @@ class SpacingComp(Component):
         nTurbines = turbineX.size
 
         # initialize gradient calculation array
-        dS = np.zeros(((nTurbines-1.)*nTurbines/2., 2*nTurbines))
+        dS = np.zeros(((nTurbines-1)*nTurbines/2, 2*nTurbines))
 
         # set turbine pair counter to zero
         k = 0
 
-        # calculate the gradient of the distance between each pair of turbines w.r.t. turbineX and turbineY
+	# calculate the gradient of the distance between each pair of turbines w.r.t. turbineX and turbineY
         for i in range(0, nTurbines):
             for j in range(i+1, nTurbines):
                 # separation wrt Xj
@@ -395,164 +394,81 @@ class SpacingComp(Component):
         return J
 
 
-class SpacingConstraint(Component):
-    """
-    inter turbine spacing constraint
-    """
-
-    def __init__(self, nTurbines):
-
-        super(SpacingConstraint, self).__init__()
-
-        # Explicitly size input arrays
-        self.add_param('wtSeparationSquared', val=np.zeros(int((nTurbines-1.)*nTurbines/2.)),
-                       desc='spacing of all turbines in the wind farm')
-        self.add_param('rotorDiameter', val=np.ones(nTurbines)*126.4, units='m',
-                       desc='rotor diameter of each wind turbine')
-
-        # Explicitly size output array
-        self.add_output('spacing_con', val=np.zeros(int((nTurbines-1.)*nTurbines/2.)),
-                        desc='spacing constraint value')
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        wtSeparationSquared = params['wtSeparationSquared']
-        rotorDiameter = params['rotorDiameter']
-
-        nTurbines = rotorDiameter.size
-        spacing_con = np.zeros(int((nTurbines-1.)*nTurbines/2.))
-
-        k = 0
-        for i in range(0, nTurbines):
-            for j in range(i+1, nTurbines):
-                spacing_con[k] = wtSeparationSquared[k] - (rotorDiameter[i]+rotorDiameter[j])**2
-                k += 1
-        unknowns['spacing_con'] = spacing_con
-
-    def linearize(self, params, unknowns, resids):
-
-        wtSeparationSquared = params['wtSeparationSquared']
-        rotorDiameter = params['rotorDiameter']
-
-        nTurbines = rotorDiameter.size
-
-        # initialize gradient calculation array
-        ds_dseparation = np.zeros((int((nTurbines-1.)*nTurbines/2.),int((nTurbines-1.)*nTurbines/2.)))
-        ds_ddiameter = np.zeros((int((nTurbines-1.)*nTurbines/2.),nTurbines))
-
-        # set turbine pair counter to zero
-        k = 0
-
-        # calculate the gradient of the distance between each pair of turbines w.r.t. turbineX and turbineY
-        for i in range(0, nTurbines):
-            for j in range(i+1, nTurbines):
-                ds_dseparation[k][k] = 1.
-                ds_ddiameter[k][i] = -2.*rotorDiameter[i]-2.*rotorDiameter[j]
-                ds_ddiameter[k][j] = -2.*rotorDiameter[i]-2.*rotorDiameter[j]
-                k += 1
-
-
-        # initialize Jacobian dict
-        J = {}
-
-        # populate Jacobian dict
-        J['spacing_con', 'wtSeparationSquared'] = ds_dseparation
-        J['spacing_con', 'rotorDiameter'] = ds_ddiameter
-
-        return J
-
-
 class BoundaryComp(Component):
+
     def __init__(self, nTurbines, nVertices):
+
         super(BoundaryComp, self).__init__()
+
         self.nTurbines = nTurbines
         self.nVertices = nVertices
-        if nVertices > 1:
-            self.type = type = 'polygon'
-        elif nVertices == 1:
-            self.type = type = 'circle'
-        else:
-            ValueError('nVertices in BoundaryComp must be greater than 0')
-        if type == 'polygon':
-            #     Explicitly size input arrays
-            self.add_param('boundaryVertices', np.zeros([nVertices, 2]), units='m', pass_by_obj=True,
-                           desc="vertices of the convex hull CCW in order s.t. boundaryVertices[i] -> first point of face"
-                                "for unit_normals[i]")
-            self.add_param('boundaryNormals', np.zeros([nVertices, 2]), pass_by_obj=True,
-                           desc="unit normal vector for each boundary face CCW where boundaryVertices[i] is "
-                                "the first point of the corresponding face")
-        elif type == 'circle':
-            self.add_param('boundary_radius', val=1000., units='m', pass_by_obj=True, desc='radius of wind farm boundary')
-            self.add_param('boundary_center', val=np.array([0., 0.]), units='m', pass_by_obj=True,
-                           desc='x and y positions of circular wind farm boundary center')
-        else:
-            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
-                        %(type))
+
+        # Explicitly size input arrays
+        self.add_param('boundaryVertices', np.zeros([nVertices, 2]), units='m', pass_by_obj=True,
+                       desc="vertices of the convex hull CCW in order s.t. boundaryVertices[i] -> first point of face"
+                            "for unit_normals[i]")
+        self.add_param('boundaryNormals', np.zeros([nVertices, 2]), pass_by_obj=True,
+                       desc="unit normal vector for each boundary face CCW where boundaryVertices[i] is "
+                            "the first point of the corresponding face")
         self.add_param('turbineX', np.zeros(nTurbines), units='m',
                        desc='x coordinates of turbines in global ref. frame')
         self.add_param('turbineY', np.zeros(nTurbines), units='m',
                        desc='y coordinates of turbines in global ref. frame')
+
         # Explicitly size output array
         # (vector with positive elements if turbines outside of hull)
         self.add_output('boundaryDistances', np.zeros([nTurbines, nVertices]),
                         desc="signed perpendicular distance from each turbine to each face CCW; + is inside")
+
     def solve_nonlinear(self, params, unknowns, resids):
+
         turbineX = params['turbineX']
         turbineY = params['turbineY']
-        if self.type == 'polygon':
-            # put locations in correct arrangement for calculations
-            locations = np.zeros([self.nTurbines, 2])
-            for i in range(0, self.nTurbines):
-                locations[i] = np.array([turbineX[i], turbineY[i]])
-            # print "in comp, locs are: ", locations
-            # calculate distance from each point to each face
-            unknowns['boundaryDistances'] = calculate_distance(locations,
-                                                               params['boundaryVertices'], params['boundaryNormals'])
-        elif self.type == 'circle':
-            xc = params['boundary_center'][0]
-            yc = params['boundary_center'][1]
-            r = params['boundary_radius']
-            unknowns['boundaryDistances'] = r**2 - (np.power((turbineX - xc), 2) + np.power((turbineY - yc), 2))
-        else:
-            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
-                        %(type))
+
+        # put locations in correct arrangement for calculations
+        locations = np.zeros([self.nTurbines, 2])
+        for i in range(0, self.nTurbines):
+            locations[i] = np.array([turbineX[i], turbineY[i]])
+
+        # print "in comp, locs are: ", locations
+
+        # calculate distance from each point to each face
+        unknowns['boundaryDistances'] = calculate_distance(locations,
+                                                           params['boundaryVertices'], params['boundaryNormals'])
+
     def linearize(self, params, unknowns, resids):
-        if self.type == 'polygon':
-            unit_normals = params['boundaryNormals']
-            # initialize array to hold distances from each point to each face
-            dfaceDistance_dx = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
-            dfaceDistance_dy = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
-            for i in range(0, self.nTurbines):
-                # determine if point is inside or outside of each face, and distance from each face
-                for j in range(0, self.nVertices):
-                    # define the derivative vectors from the point of interest to the first point of the face
-                    dpa_dx = np.array([-1.0, 0.0])
-                    dpa_dy = np.array([0.0, -1.0])
-                    # find perpendicular distance derivatives from point to current surface (vector projection)
-                    ddistanceVec_dx = np.vdot(dpa_dx, unit_normals[j])*unit_normals[j]
-                    ddistanceVec_dy = np.vdot(dpa_dy, unit_normals[j])*unit_normals[j]
-                    # calculate derivatives for the sign of perpendicular distance from point to current face
-                    dfaceDistance_dx[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dx, unit_normals[j])
-                    dfaceDistance_dy[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dy, unit_normals[j])
-        elif self.type == 'circle':
-            turbineX = params['turbineX']
-            turbineY = params['turbineY']
-            xc = params['boundary_center'][0]
-            yc = params['boundary_center'][1]
-            A = np.eye(self.nTurbines, self.nTurbines)
-            B =  - 2. * (turbineX - xc)
-            C =  - 2. * (turbineY - yc)
-            dfaceDistance_dx = A*B
-            dfaceDistance_dy = A*C
-        else:
-            ValueError('Invalid value (%s) encountered in BoundaryComp input -type-. Must be one of [polygon, circle]'
-                       % (type))
+
+        unit_normals = params['boundaryNormals']
+
+        # initialize array to hold distances from each point to each face
+        dfaceDistance_dx = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
+        dfaceDistance_dy = np.zeros([self.nTurbines*self.nVertices, self.nTurbines])
+
+        for i in range(0, self.nTurbines):
+            # determine if point is inside or outside of each face, and distance from each face
+            for j in range(0, self.nVertices):
+
+                # define the derivative vectors from the point of interest to the first point of the face
+                dpa_dx = np.array([-1.0, 0.0])
+                dpa_dy = np.array([0.0, -1.0])
+
+                # find perpendicular distance derivatives from point to current surface (vector projection)
+                ddistanceVec_dx = np.vdot(dpa_dx, unit_normals[j])*unit_normals[j]
+                ddistanceVec_dy = np.vdot(dpa_dy, unit_normals[j])*unit_normals[j]
+
+                # calculate derivatives for the sign of perpendicular distance from point to current face
+                dfaceDistance_dx[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dx, unit_normals[j])
+                dfaceDistance_dy[i*self.nVertices+j, i] = np.vdot(ddistanceVec_dy, unit_normals[j])
+
         # initialize Jacobian dict
         J = {}
+
         # return Jacobian dict
         J['boundaryDistances', 'turbineX'] = dfaceDistance_dx
         J['boundaryDistances', 'turbineY'] = dfaceDistance_dy
+
         return J
+
 
 class MUX(Component):
     """ Connect input elements into a single array  """
@@ -655,63 +571,6 @@ class DeMUX(Component):
             J['output%i' % i, 'Array'] = np.reshape(doutput_dArray[i, :], (1, self.nElements))
 
         return J
-
-"""
-Don't use this anywhere, may be able to delete
-"""
-class DeMUXArrays(Component):
-    """ split a given array of arrays into separate arrays """
-
-    def __init__(self, nElements, nArrays, units=None):
-
-        super(DeMUXArrays, self).__init__()
-
-        # set finite difference options (fd used for testing only)
-        # self.deriv_options['form'] = 'central'
-        # self.deriv_options['step_size'] = 500.
-        # self.deriv_options['step_calc'] = 'relative'
-        # self.deriv_options['type'] = 'fd'
-
-        # initialize necessary class attributes
-        self.nElements = nElements
-        self.nArrays = nArrays
-
-        # define input
-        if units is None:
-            self.add_param('Array', np.zeros((nArrays, nElements)), desc='ndArray of arrays')
-        else:
-            self.add_param('Array', np.zeros((nArrays, nElements)), units=units, desc='ndArray of arrays')
-
-        # define outputs
-        if units is None:
-            for i in range(0, nArrays):
-                self.add_output('output%i' % i, np.zeros(nElements), desc='scalar output')
-        else:
-            for i in range(0, nElements):
-                self.add_output('output%i' % i, np.zeros(nElements), units=units, desc='scalar output')
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        # assign elements of the input array to outputs
-        for i in range(0, self.nArrays):
-            exec("unknowns['output%i'] = params['Array'][%i][:]" % (i, i))
-    """
-    #TODO need to do linearize still
-    def linearize(self, params, unknowns, resids):
-
-        # initialize gradient calculation array
-        doutput_dArray = np.eye(self.nElements)
-
-        # intialize Jacobian dict
-        J = {}
-
-        # calculate the gradients and populate the Jacobian dict
-        for i in range(0, self.nElements):
-            J['output%i' % i, 'Array'] = np.reshape(doutput_dArray[i, :], (1, self.nElements))
-
-        return J
-    """
-
 
 class organizeWindSpeeds(Component):
     """ split wind speeds to connect to direction groups """
@@ -893,7 +752,7 @@ class CPCT_Interpolate_Gradients(Component):
 
         # compile Jacobian dict from sub-matrices
         J = {}
-        J['Cp_out', 'yaw%i' % direction_id] = dCP_dyaw
+	J['Cp_out', 'yaw%i' % direction_id] = dCP_dyaw
         J['Cp_out', 'wtVelocity%i' % direction_id] = dCP_dwind
         J['Ct_out', 'yaw%i' % direction_id] = dCT_dyaw
         J['Ct_out', 'wtVelocity%i' % direction_id] = dCT_dwind
@@ -945,14 +804,14 @@ class CPCT_Interpolate_Gradients_Smooth(Component):
         # windspeeds = params['gen_params:windSpeedToCPCT_wind_speed'][start::skip]
         windspeeds = params['gen_params:windSpeedToCPCT_wind_speed']
         #
-        # Cp = np.insert(Cp, 0, Cp[0]/2.0)
+	# Cp = np.insert(Cp, 0, Cp[0]/2.0)
         # Cp = np.insert(Cp, 0, 0.0)
         # Ct = np.insert(Ct, 0, np.max(params['gen_params:windSpeedToCPCT_CP'])*0.99)
         # Ct = np.insert(Ct, 0, np.max(params['gen_params:windSpeedToCPCT_CT']))
         # windspeeds = np.insert(windspeeds, 0, 2.5)
         # windspeeds = np.insert(windspeeds, 0, 0.0)
         #
-        # Cp = np.append(Cp, 0.0)
+	# Cp = np.append(Cp, 0.0)
         # Ct = np.append(Ct, 0.0)
         # windspeeds = np.append(windspeeds, 30.0)
 
@@ -991,7 +850,7 @@ class CPCT_Interpolate_Gradients_Smooth(Component):
 
         # compile Jacobian dict
         J = {}
-        J['Cp_out', 'yaw%i' % direction_id] = np.eye(self.nTurbines)*self.dCp_out_dyaw
+	J['Cp_out', 'yaw%i' % direction_id] = np.eye(self.nTurbines)*self.dCp_out_dyaw
         J['Cp_out', 'wtVelocity%i' % direction_id] = np.eye(self.nTurbines)*self.dCp_out_dvel
         J['Ct_out', 'yaw%i' % direction_id] = np.eye(self.nTurbines)*self.dCt_out_dyaw
         J['Ct_out', 'wtVelocity%i' % direction_id] = np.eye(self.nTurbines)*self.dCt_out_dvel
@@ -1016,7 +875,7 @@ class WindDirectionPower(Component):
         # self.deriv_options['step_size'] = 500.
         # self.deriv_options['step_calc'] = 'relative'
         #
-        # if not differentiable:
+	# if not differentiable:
         #     self.deriv_options['type'] = 'fd'
         #     self.deriv_options['form'] = 'forward'
 
@@ -1028,29 +887,25 @@ class WindDirectionPower(Component):
                        desc='effective hub velocity for each turbine')
 
         self.add_param('ratedPower', np.ones(nTurbines)*5000., units='kW',
-                       desc='rated power for each turbine')#, pass_by_obj=True)
-
-        self.add_param('cut_in_speed', np.ones(nTurbines)*3., units='m/s',
-                       desc='cut in wind speed for each turbine')
+                       desc='rated power for each turbine', pass_by_obj=True)
 
         # outputs
         self.add_output('wtPower%i' % direction_id, np.zeros(nTurbines), units='kW', desc='power output of each turbine')
         self.add_output('dir_power%i' % direction_id, 0.0, units='kW', desc='total power output of the wind farm')
 
     def solve_nonlinear(self, params, unknowns, resids):
-
-        # obtain necessary inputs
+                    # obtain necessary inputs
         use_rotor_components = self.use_rotor_components
         direction_id = self.direction_id
         nTurbines = self.nTurbines
         wtVelocity = self.params['wtVelocity%i' % direction_id]
         ratedPower = params['ratedPower']
         air_density = params['air_density']
-        rotorDiameter = params['rotorDiameter']
         rotorArea = 0.25*np.pi*np.power(params['rotorDiameter'], 2)
         Cp = params['Cp']
         generatorEfficiency = params['generatorEfficiency']
-
+        # print 'DirPowers: '
+        # print 'wtVelocity: ', wtVelocity
 
         # calculate initial values for wtPower (W)
         wtPower = generatorEfficiency*(0.5*air_density*rotorArea*Cp*np.power(wtVelocity, 3))
@@ -1060,68 +915,46 @@ class WindDirectionPower(Component):
 
         # rated_velocity = np.power(1000.*ratedPower/(generator_efficiency*(0.5*air_density*rotorArea*Cp)), 1./3.)
         #
-        # dwt_power_dvelocitiesTurbines = np.eye(nTurbines)*generator_efficiency*(1.5*air_density*rotorArea*Cp *
+	# dwt_power_dvelocitiesTurbines = np.eye(nTurbines)*generator_efficiency*(1.5*air_density*rotorArea*Cp *
         #                                                                         np.power(wtVelocity, 2))
         # dwt_power_dvelocitiesTurbines /= 1000.
 
         # adjust wt power based on rated power
-
-        """Gradients!"""
-
-        # calcuate initial gradient values
-        self.dwtPower_dwtVelocity = np.eye(nTurbines)*generatorEfficiency*(1.5*air_density*rotorArea*Cp *
-                                                                                np.power(wtVelocity, 2))
-        self.dwtPower_dCp = np.eye(nTurbines)*generatorEfficiency*(0.5*air_density*rotorArea*np.power(wtVelocity, 3))
-        self.dwtPower_drotorDiameter = np.eye(nTurbines)*generatorEfficiency*(0.5*air_density*(0.5*np.pi*rotorDiameter)*Cp *
-                                                                           np.power(wtVelocity, 3))
-        # dwt_power_dvelocitiesTurbines = self.dwt_power_dvelocitiesTurbines
-
-        # adjust gradients for unit conversion from W to kW
-        self.dwtPower_dwtVelocity /= 1000.
-        self.dwtPower_dCp /= 1000.
-        self.dwtPower_drotorDiameter /= 1000.
-
-        self.dwtPower_dratedPower = np.zeros((nTurbines, nTurbines))
-        self.ddir_power_dratedPower = np.zeros((1,nTurbines))
-
-        if not use_rotor_components and np.any(wtPower) >= (np.any(ratedPower)-100.):
+        if not use_rotor_components and np.any(wtPower) >= np.any(ratedPower):
             for i in range(0, nTurbines):
-                if (ratedPower[i]-100.) <= wtPower[i] <= (ratedPower[i]+100.):
-                    x = np.array([(ratedPower[i]-100.),ratedPower[i],(ratedPower[i]+100.)])
-                    y = np.array([(ratedPower[i]-100.),ratedPower[i]-25.,ratedPower[i]])
-                    cs = CubicSpline(x,y)
-                    power = wtPower[i]
-                    wtPower[i] = cs(power)
-                    der = cs.derivative()
-                    self.dwtPower_dratedPower[i][i] = 1.-der(power)
-                    self.ddir_power_dratedPower[0][i] = 1.-der(power)
-
-                    self.dwtPower_dwtVelocity[i][i] = self.dwtPower_dwtVelocity[i][i] * der(power)
-                    self.dwtPower_dCp[i][i] = self.dwtPower_dCp[i][i] * der(power)
-                    self.dwtPower_drotorDiameter[i][i] = self.dwtPower_drotorDiameter[i][i] * der(power)
-
-                elif wtPower[i] > (ratedPower[i]+100.):
+                if wtPower[i] >= ratedPower[i]:
                     wtPower[i] = ratedPower[i]
-                    self.dwtPower_dratedPower[i][i] = 1.
-                    self.ddir_power_dratedPower[0][i] = 1.
 
-                    self.dwtPower_dwtVelocity[i][i] = 0.
-                    self.dwtPower_dCp[i][i] = 0.
-                    self.dwtPower_drotorDiameter[i][i] = 0.
 
-        for i in range(nTurbines):
-            if wtVelocity[i] < params['cut_in_speed'][i]:
-                wtPower[i] = 0.
-                self.dwtPower_dratedPower[i][i] = 0.
-                self.ddir_power_dratedPower[0][i] = 0.
-                self.dwtPower_dwtVelocity[i][i] = 0.
-                self.dwtPower_dCp[i][i] = 0.
-                self.dwtPower_drotorDiameter[i][i] = 0.
+        # if np.any(rated_velocity+1.) >= np.any(wtVelocity) >= np.any(rated_velocity-1.) and not \
+        #         use_rotor_components:
+        #     for i in range(0, nTurbines):
+        #         if wtVelocity[i] >= rated_velocity[i]+1.:
+        #             spline_start_power = generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]-1., 3))
+        #             deriv_spline_start_power = 3.*generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]-1., 2))
+        #             spline_end_power = generator_efficiency[i]*(0.5*air_density*rotorArea[i]*Cp[i]*np.power(rated_velocity[i]+1., 3))
+        #             wtPower[i], deriv = hermite_spline(wtVelocity[i], rated_velocity[i]-1.,
+        #                                                                      rated_velocity[i]+1., spline_start_power,
+        #                                                                      deriv_spline_start_power, spline_end_power, 0.0)
+        #             dwt_power_dvelocitiesTurbines[i][i] = deriv/1000.
+        #
+	# if np.any(wtVelocity) >= np.any(rated_velocity+1.) and not use_rotor_components:
+        #     for i in range(0, nTurbines):
+        #         if wtVelocity[i] >= rated_velocity[i]+1.:
+        #             wtPower = ratedPower
+        #             dwt_power_dvelocitiesTurbines[i][i] = 0.0
 
+
+
+        # self.dwt_power_dvelocitiesTurbines = dwt_power_dvelocitiesTurbines
 
         # calculate total power for this direction
         dir_power = np.sum(wtPower)
 
+        # print 'DirectionPower:'
+        # print 'wtVelocity: ', wtVelocity
+        # print 'wtPower: ', wtPower
+        # print 'dir_power: ', dir_power
         # pass out results
         unknowns['wtPower%i' % direction_id] = wtPower
         unknowns['dir_power%i' % direction_id] = dir_power
@@ -1143,7 +976,6 @@ class WindDirectionPower(Component):
         ratedPower = params['ratedPower']
         wtPower = unknowns['wtPower%i' % direction_id]
 
-        """
         # calcuate initial gradient values
         dwtPower_dwtVelocity = np.eye(nTurbines)*generatorEfficiency*(1.5*air_density*rotorArea*Cp *
                                                                                 np.power(wtVelocity, 2))
@@ -1156,18 +988,13 @@ class WindDirectionPower(Component):
         dwtPower_dwtVelocity /= 1000.
         dwtPower_dCp /= 1000.
         dwtPower_drotorDiameter /= 1000.
-        """
-
-        dwtPower_dwtVelocity = self.dwtPower_dwtVelocity
-        dwtPower_dCp = self.dwtPower_dCp
-        dwtPower_drotorDiameter = self.dwtPower_drotorDiameter
 
         # rated_velocity = np.power(1000.*ratedPower/(generator_efficiency*(0.5*air_density*rotorArea*Cp)), 1./3.)
 
         # if np.any(rated_velocity+1.) >= np.any(wtVelocity) >= np.any(rated_velocity-1.) and not \
         #         use_rotor_components:
         #
-        #     spline_start_power = generator_efficiency*(0.5*air_density*rotorArea*Cp*np.power(rated_velocity-1., 3))
+	#     spline_start_power = generator_efficiency*(0.5*air_density*rotorArea*Cp*np.power(rated_velocity-1., 3))
         #     deriv_spline_start_power = 3.*generator_efficiency*(0.5*air_density*rotorArea*Cp*np.power(rated_velocity-1., 2))
         #     spline_end_power = generator_efficiency*(0.5*air_density*rotorArea*Cp*np.power(rated_velocity+1., 3))
         #     wtPower, dwt_power_dvelocitiesTurbines = hermite_spline(wtVelocity, rated_velocity-1.,
@@ -1175,31 +1002,22 @@ class WindDirectionPower(Component):
         #                                                              deriv_spline_start_power, spline_end_power, 0.0)
 
         # set gradients for turbines above rated power to zero
-
-        """
-        if np.any(wtPower) >= (np.any(ratedPower)-100.) and not use_rotor_components:
+        if np.any(wtPower) >= np.any(ratedPower) and not use_rotor_components:
             for i in range(0, nTurbines):
-                if (ratedPower[i]-100.) <= wtPower[i] <= (ratedPower[i]+100.):
-                    x = np.array([(ratedPower[i]-100.),ratedPower[i],(ratedPower[i]+100.)])
-                    y = np.array([(ratedPower[i]-100.),ratedPower[i]-25.,ratedPower[i]])
-                    cs = CubicSpline(x,y)
-                    power = wtPower[i]
-                    der = cs.derivative()
-                    dwtPower_dwtVelocity[i][i] = 1.-der(power)
-                elif wtPower[i] > (ratedPower[i]+100.):
+                if wtPower[i] >= ratedPower[i]:
                     dwtPower_dwtVelocity[i][i] = 0.0
                     dwtPower_dCp[i][i] = 0.0
                     dwtPower_drotorDiameter[i][i] = 0.0
-        """
-
 
         # compile elements of Jacobian
         ddir_power_dwtVelocity = np.array([np.sum(dwtPower_dwtVelocity, 0)])
         ddir_power_dCp = np.array([np.sum(dwtPower_dCp, 0)])
         ddir_power_drotorDiameter = np.array([np.sum(dwtPower_drotorDiameter, 0)])
 
-        dwtPower_dratedPower = self.dwtPower_dratedPower
-        ddir_power_dratedPower = self.ddir_power_dratedPower
+        # print 'DirectionPower Gradients:'
+        # print 'ddir_power_dwtVelocity: ', ddir_power_dwtVelocity
+        # print 'ddir_power_dCp: ', ddir_power_dCp
+        # print 'ddir_power_drotorDiameter: ', ddir_power_drotorDiameter
 
         # initialize Jacobian dict
         J = {}
@@ -1208,108 +1026,13 @@ class WindDirectionPower(Component):
         J['wtPower%i' % direction_id, 'wtVelocity%i' % direction_id] = dwtPower_dwtVelocity
         J['wtPower%i' % direction_id, 'Cp'] = dwtPower_dCp
         J['wtPower%i' % direction_id, 'rotorDiameter'] = dwtPower_drotorDiameter
-        J['wtPower%i' % direction_id, 'ratedPower'] = dwtPower_dratedPower
 
         J['dir_power%i' % direction_id, 'wtVelocity%i' % direction_id] = ddir_power_dwtVelocity
         J['dir_power%i' % direction_id, 'Cp'] = ddir_power_dCp
         J['dir_power%i' % direction_id, 'rotorDiameter'] = ddir_power_drotorDiameter
-        J['dir_power%i' % direction_id, 'ratedPower'] = ddir_power_dratedPower
 
         return J
 
-#
-# def calculate_boundary(vertices):
-#
-#     # find the points that actually comprise a convex hull
-#     hull = ConvexHull(list(vertices))
-#
-#     # keep only vertices that actually comprise a convex hull and arrange in CCW order
-#     vertices = vertices[hull.vertices]
-#
-#     # get the real number of vertices
-#     nVertices = vertices.shape[0]
-#
-#     # initialize normals array
-#     unit_normals = np.zeros([nVertices, 2])
-#
-#     # determine if point is inside or outside of each face, and distance from each face
-#     for j in range(0, nVertices):
-#
-#         # calculate the unit normal vector of the current face (taking points CCW)
-#         if j < nVertices - 1:  # all but the set of point that close the shape
-#             normal = np.array([vertices[j+1, 1]-vertices[j, 1],
-#                                -(vertices[j+1, 0]-vertices[j, 0])])
-#             unit_normals[j] = normal/np.linalg.norm(normal)
-#         else:   # the set of points that close the shape
-#             normal = np.array([vertices[0, 1]-vertices[j, 1],
-#                                -(vertices[0, 0]-vertices[j, 0])])
-#             unit_normals[j] = normal/np.linalg.norm(normal)
-#
-#     return vertices, unit_normals
-#
-#
-# def calculate_distance(points, vertices, unit_normals, return_bool=False):
-#
-#     """
-#     :param points: points that you want to calculate the distance from to the faces of the convex hull
-#     :param vertices: vertices of the convex hull CCW in order s.t. vertices[i] -> first point of face for
-#            unit_normals[i]
-#     :param unit_normals: unit normal vector for each face CCW where vertices[i] is first point of face
-#     :param return_bool: set to True to return an array of bools where True means the corresponding point
-#            is inside the hull
-#     :return face_distace: signed perpendicular distance from each point to each face; + is inside)
-#     :return [inside]: (optional) an array of zeros and ones where 1.0 means the corresponding point is inside the hull
-#     """
-#     print points.shape, vertices.shape, unit_normals.shape
-#     nPoints = len(points[0, :])
-#     nVertices = len(unit_normals)
-#
-#     # initialize array to hold distances from each point to each face
-#     face_distance = np.zeros([nPoints, nVertices])
-#
-#     if not return_bool:
-#         # loop through points and find distance to each face
-#         for i in range(0, nPoints):
-#
-#             # determine if point is inside or outside of each face, and distance from each face
-#             for j in range(0, nVertices):
-#
-#                 # define the vector from the point of interest to the first point of the face
-#                 pa = np.array([vertices[j, 0]-points[0, i], vertices[j, 1]-points[0, i]])
-#
-#                 # find perpendicular distance from point to current surface (vector projection)
-#                 d_vec = np.vdot(pa, unit_normals[j])*unit_normals[j]
-#
-#                 # calculate the sign of perpendicular distance from point to current face (+ is inside, - is outside)
-#                 face_distance[i, j] = np.vdot(d_vec, unit_normals[j])
-#
-#         return face_distance
-#
-#     else:
-#         # initialize array to hold boolean indicating whether a point is inside the hull or not
-#         inside = np.zeros(nPoints)
-#
-#         # loop through points and find distance to each face
-#         for i in range(0, nPoints):
-#
-#             # determine if point is inside or outside of each face, and distance from each face
-#             for j in range(0, nVertices):
-#
-#                 # define the vector from the point of interest to the first point of the face
-#                 pa = np.array([vertices[j, 0]-points[0, i], vertices[j, 1]-points[1, i]])
-#
-#                 # find perpendicular distance from point to current surface (vector projection)
-#                 d_vec = np.vdot(pa, unit_normals[j])*unit_normals[j]
-#
-#                 # calculate the sign of perpendicular distance from point to current face (+ is inside, - is outside)
-#                 face_distance[i, j] = np.vdot(d_vec, unit_normals[j])
-#
-#             # check if the point is inside the convex hull by checking the sign of the distance
-#             if np.all(face_distance[i] > 0):
-#                 inside[i] = 1.0
-#
-#         return face_distance, inside
-#
 
 def calculate_boundary(vertices):
 
@@ -1381,7 +1104,7 @@ def calculate_distance(points, vertices, unit_normals, return_bool=False):
         return face_distance
 
     else:
-        # initialize array to hold boolean indicating whether a point is inside the hull or not
+	# initialize array to hold boolean indicating whether a point is inside the hull or not
         inside = np.zeros(nPoints)
 
         # loop through points and find distance to each face
@@ -1404,129 +1127,6 @@ def calculate_distance(points, vertices, unit_normals, return_bool=False):
                 inside[i] = 1.0
 
         return face_distance, inside
-
-
-class getUeffintegrate(Component):
-    """
-    Integrate across the turbine to get effective wind speed
-    """
-    def __init__(self, nDirections, nTurbines):
-
-        super(getUeffintegrate, self).__init__()
-
-        # self.deriv_options['form'] = 'forward'
-        # self.deriv_options['step_size'] = 500.
-        # self.deriv_options['step_calc'] = 'relative'
-        # self.deriv_options['type'] = 'fd'
-
-        self.nDirections = nDirections
-        self.nTurbines = nTurbines
-
-        # inputs
-        self.add_param('nIntegrationPoints', 1, desc='number of integration points', pass_by_obj=True)
-        self.add_param('rotorDiameter', np.zeros(nTurbines), units='m', desc='rotor diameter of each turbine')
-        self.add_param('turbineZ', np.zeros(nTurbines), units='m', desc='the hub height of each turbine')
-        self.add_param('wind', 'PowerWind', desc='Wind shear calculation method', pass_by_obj=True)
-        self.add_param('Uref', np.zeros(nDirections), units='m/s', desc='refenence wind speed for each direction')
-        self.add_param('zref', 90, units='m', desc='height at which Uref was measured', pass_by_obj=True)
-        self.add_param('z_roughness', 0.01, units='m', desc='ground roughness height', pass_by_obj=True)
-        self.add_param('z0', 0, units='m', desc='height of ground', pass_by_obj=True)
-        self.add_param('shearExp', 0.2, desc='PowerWind exponent', pass_by_obj=True)
-
-        # outputs
-        self.add_output('windSpeeds', np.zeros((nTurbines, nDirections)), units='m/s', desc='Free stream wind speed on each turbine from each direction')
-
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        nTurbines = self.nTurbines
-        nDirections = self.nDirections
-
-        D = params['rotorDiameter']
-        r = D/2.
-
-        nPoints = params['nIntegrationPoints']
-        wind = params['wind']
-        Uref = params['Uref']
-        zref = params['zref']
-        z_roughness = params['z_roughness']
-        z0 = params['z0']
-        shearExp = params['shearExp']
-        turbineZ = params['turbineZ']
-
-        past = np.array([]) #an array of the heights for which Ueff has already been calculated
-
-        for turbine_id in range(nTurbines):
-            turbZ = turbineZ[turbine_id]
-            #check if Ueff has already been calculated for this turbine height
-            if turbZ in past:
-                Ueff = unknowns['windSpeeds'][np.argwhere(past==turbZ)[0]][:]
-
-            else:
-                Ueff = np.zeros(nDirections)
-                rTurb = r[turbine_id]
-                for direction_id in range(nDirections):
-                    z = turbZ-rTurb
-                    Usum = 0.
-                    Asum = 0.
-                    for point_id in range(nPoints):
-                        dz = D[turbine_id]/nPoints
-                        if point_id == 0 or point_id == nPoints-1:
-                            dz = dz/2.
-
-                        if z < turbZ:
-                            a1 = 2.*np.sqrt(rTurb**2-(turbZ-z)**2)
-                        elif z == turbZ:
-                            a1 = 2.*rTurb
-                        else:
-                            a1 = 2.*np.sqrt(rTurb**2-(z-turbZ)**2)
-
-                        if z+dz < turbZ:
-                            a2 = 2.*np.sqrt(rTurb**2-(turbZ-(z+dz))**2)
-                        elif z+dz == turbZ:
-                            a2 = 2.*rTurb
-                        else:
-                            a2 = 2.*np.sqrt(rTurb**2-(z+dz-turbZ)**2)
-
-                        if wind == 'PowerWind':
-                            Ub = PowWind(Uref[direction_id], z, zref, z0, shearExp)
-                            Ut = PowWind(Uref[direction_id], z+dz, zref, z0, shearExp)
-                        if wind == 'LogWind':
-                            Ub = LnWind(Uref[direction_id], z, z0, z_roughness, zref)
-                            Ut = LnWind(Uref[direction_id], z, z0, z_roughness, zref)
-
-                        Usum += dz/2.*(a1*Ub+a2*Ut)
-                        Asum += dz/2.*(a1+a2)
-                        z += dz
-                    Ueff[direction_id] = Usum/Asum
-
-            unknowns['windSpeeds'][turbine_id][:] = Ueff
-            past = np.append(past, turbZ)
-
-    """
-    #TODO need to do linearize
-    &&&&&&&&&&&&&&&&&&&&&&&&&&
-    &&&&&&&&&&&&&&&&&&&&&&&&&&
-    &&&&&&&&&&&&&&&&&&&&&&&&&&
-    &&&&&&&&&&&&&&&&&&&&&&&&&&
-    &&&&&&&&&&&&&&&&&&&&&&&&&&
-    """
-    """
-    def linearize(self, params, unknowns, resids):
-
-        nTurbines = self.nTurbines
-        nDirections = self.nDirections
-
-        # intialize Jacobian dict
-        J = {}
-
-        for direction_id in range(nDirections):
-            for turbine_id in range(nTurbines):
-                J['windSpeeds', 'turbineZ'][turbine_id] = np.zeros((nTurbines, nDirections))
-                J['output%i'%direction_id, 'windSpeeds'][turbine_id][direction_id][turbine_id] = 1.0
-
-        return J
-    """
 
 
 class PowWind(Component):
@@ -1615,30 +1215,29 @@ def LnWind(uref, z, z0, z_roughness, zref):
 
 class hGroups(Group):
 
-    def __init__(self, nTurbs, nGroups):
+    def __init__(self, nTurbs):
 
         super(hGroups, self).__init__()
 
-        self.add('Hgroup_comp', Hgroup_comp(nTurbs, nGroups), promotes=['*'])
-        self.add('getTurbineZ', getTurbineZ(nTurbs, nGroups), promotes=['*'])
+        self.add('Hgroup_comp', Hgroup_comp(nTurbs), promotes=['*'])
+        self.add('getTurbineZ', getTurbineZ(nTurbs), promotes=['*'])
 
 
 class Hgroup_comp(Component):
 
-    def __init__(self, nTurbs, nGroups):
+    def __init__(self, nTurbs):
 
         super(Hgroup_comp, self).__init__()
 
         self.nTurbs = nTurbs
-        self.nGroups = nGroups
-
+        self.add_param('nGroups', 1, desc='number of height groups')
         self.add_param('randomize', False, desc='randomize order of Hgroup array')
 
         self.add_output('hGroup', np.array(nTurbs), desc='array assigning height groups')
 
     def solve_nonlinear(self, params, unknowns, resids):
 
-        nGroups = self.nGroups
+        nGroups = params['nGroups']
         nTurbs = self.nTurbs
         groups = np.zeros(nGroups)
         hGroup = np.zeros(nTurbs)
@@ -1646,7 +1245,7 @@ class Hgroup_comp(Component):
             groups[i] = i
 
         i = 0
-        for j in range(nTurbs):
+	for j in range(nTurbs):
             hGroup[j] = groups[i]
             i += 1
             if i > nGroups-1:
@@ -1660,7 +1259,7 @@ class Hgroup_comp(Component):
 
 class getTurbineZ(Component):
 
-    def __init__(self, nTurbs, nGroups):
+    def __init__(self, nTurbs):
 
         super(getTurbineZ, self).__init__()
 
@@ -1668,18 +1267,18 @@ class getTurbineZ(Component):
         # self.deriv_options['step_size'] = 500.
         # self.deriv_options['step_calc'] = 'relative'
         self.nTurbs = nTurbs
-        self.nGroups = nGroups
 
-        for i in range(nGroups):
+        for i in range(nTurbs):
             self.add_param('turbineH%s'%i, 0.0, units='m', desc='Turbine height of each group')
 
+        self.add_param('nGroups', 1, desc='number of height groups')
         self.add_param('hGroup', np.zeros(nTurbs), desc='An array indicating which turbines are of each height')
         self.add_output('turbineZ', np.zeros(nTurbs), units='m', desc='The array of turbine heights')
 
 
     def solve_nonlinear(self, params, unknowns, resids):
         nTurbs = self.nTurbs
-        nGroups = self.nGroups
+        nGroups = params['nGroups']
         hGroup = params['hGroup']
         turbineZ = np.zeros(nTurbs)
 
@@ -1689,13 +1288,12 @@ class getTurbineZ(Component):
                     turbineZ[k] = params['turbineH%s'%j]
 
         unknowns['turbineZ'] = turbineZ
-        # print 'turbineZ: ', turbineZ
 
 
     def linearize(self, params, unknowns, resids):
         hGroup = params['hGroup']
         nTurbs = self.nTurbs
-        nGroups = self.nGroups
+        nGroups = params['nGroups']
 
         groups = np.zeros(nGroups)
 
@@ -1721,143 +1319,6 @@ class getTurbineZ(Component):
         #         J['turbineZ', 'turbineH2'] = np.append(J['turbineZ', 'turbineH2'], 1)
 
         return J
-
-
-class minHeight(Component):
-
-    def __init__(self):
-
-        super(minHeight, self).__init__()
-
-        self.add_param('diameter', 0.0, desc='rotor diameter')
-        self.add_param('height', 0.0, desc='tower height')
-        self.add_output('minHeight', 0.0, units='m', desc='min tower height')
-
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        unknowns['minHeight'] = params['height']-(params['diameter']/2.+10.)
-
-
-    def linearize(self, params, unknowns, resids):
-        J = {}
-        J['minHeight','diameter'] = -0.5
-        J['minHeight','height'] = 1.
-        return J
-
-
-class getRotorDiameter(Component):
-
-    def __init__(self, nTurbs, nGroups):
-
-        super(getRotorDiameter, self).__init__()
-
-        self.nTurbs = nTurbs
-        self.nGroups = nGroups
-
-        for i in range(nGroups):
-            self.add_param('rotorDiameter%s'%i, 0.0, units='m', desc='Rotor diameter of each group')
-
-        self.add_param('hGroup', np.zeros(nTurbs), desc='An array indicating which turbines are in each group')
-
-        for i in range(nTurbs):
-            self.add_output('rotor_diameters%s'%i, 0., units='m', desc='Each Rotor Diameter')
-        self.add_output('rotorDiameter', np.zeros(nTurbs), units='m', desc='an array of rotor diameters')
-
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        nTurbs = self.nTurbs
-        nGroups = self.nGroups
-        hGroup = params['hGroup']
-        rotorDiameter = np.zeros(nTurbs)
-
-        for j in range(nTurbs):
-            for k in range(nGroups):
-                if k == hGroup[j]:
-                    unknowns['rotor_diameters%s'%j] = params['rotorDiameter%s'%k]
-                    rotorDiameter[j] = params['rotorDiameter%s'%k]
-
-        unknowns['rotorDiameter'] = rotorDiameter
-
-    def linearize(self, params, unknowns, resids):
-        hGroup = params['hGroup']
-        nTurbs = self.nTurbs
-        nGroups = self.nGroups
-
-        groups = np.zeros(nGroups)
-
-        for i in range(nGroups):
-            groups[i] = i
-
-        J = {}
-
-        for j in range(nGroups):
-            J['rotorDiameter', 'rotorDiameter%s'%j] = np.zeros(nTurbs)
-
-        for k in range(nTurbs):
-            for l in range(nGroups):
-                if hGroup[k] == l:
-                    J['rotorDiameter', 'rotorDiameter%s'%l][k] = 1.
-        return J
-
-
-class getRatedPower(Component):
-
-    def __init__(self, nTurbs, nGroups):
-
-        super(getRatedPower, self).__init__()
-
-        self.nTurbs = nTurbs
-        self.nGroups = nGroups
-
-        for i in range(nGroups):
-            self.add_param('ratedPower%s'%i, 0.0, units='kW', desc='Turbine Rating of each group')
-
-        self.add_param('hGroup', np.zeros(nTurbs), desc='An array indicating which turbines are in each group')
-
-        for i in range(nTurbs):
-            self.add_output('rated_powers%s'%i, 0., units='kW', desc='Each rated power')
-        self.add_output('ratedPower', np.zeros(nTurbs), units='kW', desc='an array of rated powers')
-
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        nTurbs = self.nTurbs
-        nGroups = self.nGroups
-        hGroup = params['hGroup']
-        ratedPower = np.zeros(nTurbs)
-
-        for j in range(nTurbs):
-            for k in range(nGroups):
-                if k == hGroup[j]:
-                    unknowns['rated_powers%s'%j] = params['ratedPower%s'%k]
-                    ratedPower[j] = params['ratedPower%s'%k]
-
-        unknowns['ratedPower'] = ratedPower
-
-    def linearize(self, params, unknowns, resids):
-        hGroup = params['hGroup']
-        nTurbs = self.nTurbs
-        nGroups = self.nGroups
-
-        groups = np.zeros(nGroups)
-
-        for i in range(nGroups):
-            groups[i] = i
-
-        J = {}
-
-        for j in range(nGroups):
-            J['ratedPower', 'ratedPower%s'%j] = np.zeros(nTurbs)
-
-        for k in range(nTurbs):
-            for l in range(nGroups):
-                if hGroup[k] == l:
-                    J['ratedPower', 'ratedPower%s'%l][k] = 1.
-
-        # for i in range(nGroups):
-        #     J['rated_powers%s'%i, 'ratedPower%s'%j] = np.zeros(nTurbs)
-
-        return J
-
 
 
 class get_z(Component):
@@ -1888,7 +1349,7 @@ class get_z(Component):
         for i in range(nPoints):
             grad[i] = float(i)/(nPoints-1) *1.
         J = {}
-        J['z_param', 'turbineZ'] = grad
+	J['z_param', 'turbineZ'] = grad
 
         return J
 
@@ -1916,7 +1377,7 @@ class get_z_DEL(Component):
         turbineZ = params['turbineZ']
         DEL = self.DEL
         J = {}
-        J['z_DEL', 'turbineZ'] = DEL/87.6
+	J['z_DEL', 'turbineZ'] = DEL/87.6
 
         return J
 
@@ -1935,72 +1396,14 @@ class AEPobj(Component):
         # self.deriv_options['step_calc'] = 'relative'
 
         self.add_param('AEP', 0.0, desc='AEP of the wind farm')
-        self.add_output('AEPobj', 0.0, desc='negative AEP')
+        self.add_output('maxAEP', 0.0, desc='negative AEP')
 
     def solve_nonlinear(self, params, unknowns, resids):
-        unknowns['AEPobj'] = -1.*params['AEP']
+        unknowns['maxAEP'] = -1.*params['AEP']
 
     def linearize(Self, params, unknowns, resids):
         J = {}
-        J['AEPobj', 'AEP'] = -1.
-
-        return J
-
-
-class Myy_estimate(Component):
-    """
-    Objective to maximize AEP
-    """
-
-    def __init__(self):
-
-        super(Myy_estimate, self).__init__()
-
-        self.add_param('rotor_diameter', 0.0, desc='')
-
-        self.add_output('Myy', 0.0, desc='')
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        diameter = params['rotor_diameter']
-        unknowns['Myy'] = -1.904E4 * diameter - 3.126E4
-
-    def linearize(self, params, unknowns, resids):
-        diameter = params['rotor_diameter']
-
-        J = {}
-        J['Myy', 'rotor_diameter'] = -1.904E4
-
-        return J
-
-
-class bladeLengthComp(Component):
-    """
-    Objective to maximize AEP
-    """
-
-    def __init__(self):
-
-        super(bladeLengthComp, self).__init__()
-
-        self.add_param('rotor_diameter', 0.0, desc='')
-        self.add_param('hubFraction', 0.025, desc='')
-
-        self.add_output('blade_length', 0.0, desc='')
-
-    def solve_nonlinear(self, params, unknowns, resids):
-
-        diameter = params['rotor_diameter']
-
-        hubDiameter = params['hubFraction']*diameter
-
-        unknowns['blade_length'] = (diameter-hubDiameter)/2.
-
-    def linearize(self, params, unknowns, resids):
-        diameter = params['rotor_diameter']
-
-        J = {}
-        J['blade_length', 'rotor_diameter'] = (1-params['hubFraction'])/2.
+	J['maxAEP', 'AEP'] = -1.
 
         return J
 
@@ -2049,8 +1452,8 @@ def randomStart(nTurbs, xlow, xhigh, ylow, yhigh, rotor_diameter):
                 break
 
             for j in range(i):
-                # print 'i: ', i
-                # print 'j: ', j
+                #print 'i: ', i
+                #print 'j: ', j
                 if i == j:
                     good = 1
                 else:
@@ -2062,169 +1465,3 @@ def randomStart(nTurbs, xlow, xhigh, ylow, yhigh, rotor_diameter):
                         break
 
     return turbineX, turbineY
-
-
-
-if __name__ == "__main__":
-    # x = np.linspace(0,30,1000)
-    # y = np.zeros(len(x))
-    # y = myWeibull(x)
-    # A = np.trapz(y,x,0.01)
-    # print A
-    # import matplotlib.pyplot as plt
-    # plt.plot(x,y)
-    # plt.show()
-
-    xmin = 100.
-    xmax = 1500.
-    ymin = 100.
-    ymax = 1500.
-    rotor_diameter = 126.4
-    nTurbs = 10
-
-    turbineX, turbineY = randomStart(nTurbs, xmin, xmax, ymin, ymax, rotor_diameter)
-
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle
-
-    fig = plt.gcf()
-    ax = fig.gca()
-
-    ax.set_aspect('equal')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.get_xaxis().tick_bottom()
-    ax.get_yaxis().tick_left()
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    color = (0,0.6,0.8)
-    for j in range(nTurbs):
-        ax.add_artist(Circle(xy=(turbineX[j],turbineY[j]),
-                  radius=rotor_diameter/2., fill=False, edgecolor=color))
-
-    ax.axis([xmin-100., xmax+100., ymin-100., ymax+100.]
-    )
-
-    plt.axis('off')
-    plt.title('Start')
-    plt.show()
-
-    """
-    import matplotlib.pyplot as plt
-
-    AmaliaLocationsAndHull = loadmat('Amalia_locAndHull.mat')
-    print AmaliaLocationsAndHull.keys()
-    turbineX = AmaliaLocationsAndHull['turbineX'].flatten()
-    turbineY = AmaliaLocationsAndHull['turbineY'].flatten()
-
-    print turbineX.size
-
-    nTurbines = len(turbineX)
-    locations = np.zeros([nTurbines, 2])
-    for i in range(0, nTurbines):
-        locations[i] = np.array([turbineX[i], turbineY[i]])
-
-    # get boundary information
-    vertices, unit_normals = calculate_boundary(locations)
-
-    print vertices, unit_normals
-
-    # define point of interest
-    resolution = 100
-    x = np.linspace(min(turbineX), max(turbineX), resolution)
-    y = np.linspace(min(turbineY), max(turbineY), resolution)
-    xx, yy = np.meshgrid(x, y)
-    xx = xx.flatten()
-    yy = yy.flatten()
-    nPoints = len(xx)
-    p = np.zeros([nPoints, 2])
-    for i in range(0, nPoints):
-        p[i] = np.array([xx[i], yy[i]])
-
-    # calculate distance from each point to each face
-    face_distance, inside = calculate_distance(p, vertices, unit_normals, return_bool=True)
-
-    print inside.shape
-    # reshape arrays for plotting
-    xx = np.reshape(xx, (resolution, resolution))
-    yy = np.reshape(yy, (resolution, resolution))
-    inside = np.reshape(inside, (resolution, resolution))
-
-    # plot points colored based on inside/outside of hull
-    plt.figure()
-    plt.pcolor(xx, yy, inside)
-    plt.plot(turbineX, turbineY, 'ow')
-    plt.show()
-    """
-
-    # top = Problem()
-    #
-    # root = top.root = Group()
-    #
-    # root.add('p1', IndepVarComp('x', np.array([1.0, 1.0])))
-    # root.add('p2', IndepVarComp('y', np.array([0.75, 0.25])))
-    # root.add('p', WindFarmAEP(nDirections=2))
-    #
-    # root.connect('p1.x', 'p.power_directions')
-    # root.connect('p2.y', 'p.windrose_frequencies')
-    #
-    # top.setup()
-    # top.run()
-    #
-    # # should return 8760.0
-    # print(root.p.unknowns['AEP'])
-    # top.check_partial_derivatives()
-
-    # top = Problem()
-    #
-    # root = top.root = Group()
-    #
-    # root.add('p1', IndepVarComp('x', 1.0))
-    # root.add('p2', IndepVarComp('y', 2.0))
-    # root.add('p', MUX(nElements=2))
-    #
-    # root.connect('p1.x', 'p.input0')
-    # root.connect('p2.y', 'p.input1')
-    #
-    # top.setup()
-    # top.run()
-    #
-    # # should return 8760.0
-    # print(root.p.unknowns['Array'])
-    # top.check_partial_derivatives()
-
-    # top = Problem()
-    #
-    # root = top.root = Group()
-    #
-    # root.add('p1', IndepVarComp('x', np.zeros(2)))
-    # root.add('p', DeMUX(nElements=2))
-    #
-    # root.connect('p1.x', 'p.Array')
-    #
-    # top.setup()
-    # top.run()
-    #
-    # # should return 8760.0
-    # print(root.p.unknowns['output0'])
-    # print(root.p.unknowns['output1'])
-    # top.check_partial_derivatives()
-
-    # top = Problem()
-    #
-    # root = top.root = Group()
-    #
-    # root.add('p1', IndepVarComp('x', np.array([0, 3])))
-    # root.add('p2', IndepVarComp('y', np.array([1, 0])))
-    # root.add('p', SpacingComp(nTurbines=2))
-    #
-    # root.connect('p1.x', 'p.turbineX')
-    # root.connect('p2.y', 'p.turbineY')
-    #
-    # top.setup()
-    # top.run()
-    #
-    # # print(root.p.unknowns['output0'])
-    # # print(root.p.unknowns['output1'])
-    # top.check_partial_derivatives()
