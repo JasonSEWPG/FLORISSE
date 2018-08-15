@@ -338,6 +338,7 @@ if __name__ == '__main__':
     rhoAir = air_density
 
     COE = np.zeros(23)
+    BOS = np.zeros(23)
     AEP = np.zeros(23)
     idealAEP = np.zeros(23)
     cost = np.zeros(23)
@@ -468,6 +469,7 @@ if __name__ == '__main__':
         print 'z2: ', prob['turbineH1']
         COE[k] = prob['COE']
         AEP[k] = prob['AEP']
+        BOS[k] = prob['BOS']
         cost[k] = prob['farm_cost']
         tower_cost[k] = prob['tower_cost']
 
@@ -594,6 +596,7 @@ if __name__ == '__main__':
     print 'ideal AEP: ', repr(idealAEP)
     print 'AEP: ', repr(AEP)
     print 'COE: ', repr(COE)
+    print 'BOS: ', repr(BOS)
     print 'cost: ', repr(cost)
     print 'tower cost: ', repr(tower_cost)
 

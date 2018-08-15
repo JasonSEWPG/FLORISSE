@@ -245,273 +245,281 @@ if __name__ == '__main__':
 
     COE = np.zeros(23)
     AEP = np.zeros(23)
+    BOS = np.zeros(23)
     idealAEP = np.zeros(23)
     cost = np.zeros(23)
     tower_cost = np.zeros(23)
 
+    prob = Problem()
+    root = prob.root = Group()
+
+    for i in range(nGroups):
+        root.add('d_param%s'%i, IndepVarComp('d_param%s'%i, d[0]), promotes=['*'])
+        root.add('t_param%s'%i, IndepVarComp('t_param%s'%i, t[0]), promotes=['*'])
+        root.add('get_z_param%s'%i, get_z(nPoints))
+        root.add('get_z_full%s'%i, get_z(nFull))
+        root.add('Tower%s_max_thrust'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+        root.add('Tower%s_max_speed'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+
+        root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(turbineZ[0])), promotes=['*'])
+
+    root.add('Zs', DeMUX(nTurbs))
+    root.add('hGroups', hGroups(nTurbs), promotes=['*'])
+    root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
+                use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
+                optimizingLayout=False, nSamples=0), promotes=['*'])
+    root.add('COEGroup', COEGroup(nTurbs, nGroups), promotes=['*'])
+
+    root.connect('turbineZ', 'Zs.Array')
+    for i in range(nGroups):
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_speed.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_speed.z_full'%i)
+        root.connect('Zs.output%s'%i, 'get_z_param%s.turbineZ'%i)
+        root.connect('Zs.output%s'%i, 'get_z_full%s.turbineZ'%i)
+        root.connect('Zs.output%s'%i, 'Tower%s_max_thrust.L'%i)
+        root.connect('Zs.output%s'%i, 'Tower%s_max_speed.L'%i)
+
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+
+        root.connect('Tower%s_max_thrust.mass'%i, 'mass%s'%i)
+
+        root.connect('d_param%s'%i, 'Tower%s_max_thrust.d_param'%i)
+        root.connect('t_param%s'%i, 'Tower%s_max_thrust.t_param'%i)
+        root.connect('d_param%s'%i, 'Tower%s_max_speed.d_param'%i)
+        root.connect('t_param%s'%i, 'Tower%s_max_speed.t_param'%i)
+
+        root.connect('Tower%s_max_speed.Mt'%i, 'Tower%s_max_speed.Mt'%i)
+        root.connect('Tower%s_max_speed.It'%i, 'Tower%s_max_speed.It'%i)
+
+    # ----------------------
+
+    prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
+
+    prob.setup(check=True)
+
+    for i in range(nDirections):
+        prob['yaw%s'%i] = yaw[i]
+    prob['nGroups'] = nGroups
+    prob['turbineX'] = turbineX
+    prob['turbineY'] = turbineY
+
+    prob['ratedPower'] = np.ones(nTurbs)*1543.209877 # in kw
+
+    # assign values to constant inputs (not design variables)
+    prob['rotorDiameter'] = rotorDiameter
+    prob['rotor_diameter'] = rotor_diameter
+    prob['axialInduction'] = axialInduction
+    prob['generatorEfficiency'] = generatorEfficiency
+    prob['air_density'] = air_density
+    prob['windDirections'] = windDirections
+    prob['windFrequencies'] = windFrequencies
+    prob['Uref'] = windSpeeds
+
+    prob['Ct_in'] = Ct
+    prob['Cp_in'] = Cp
+    prob['floris_params:cos_spread'] = 1E12 # turns off cosine spread (just needs to be very large)
+
+    prob['L_reinforced'] = L_reinforced
+    prob['rho'] = rho
+    prob['E'] = E
+    prob['gamma_f'] = gamma_f
+    prob['gamma_b'] = gamma_b
+    prob['sigma_y'] = sigma_y
+    prob['m'] = m
+    prob['mrhox'] = mrhox
+    prob['zref'] = 50.
+    prob['z0'] = 0.
+
+    for i in range(nGroups):
+        prob['Tower%s_max_thrust.Fy'%i] = Fy1
+        prob['Tower%s_max_thrust.Fx'%i] = Fx1
+        prob['Tower%s_max_thrust.Fz'%i] = Fz1
+        prob['Tower%s_max_thrust.Mxx'%i] = Mxx1
+        prob['Tower%s_max_thrust.Myy'%i] = Myy1
+        prob['Tower%s_max_thrust.Vel'%i] = wind_Uref1
+        prob['Tower%s_max_thrust.Mt'%i] = m[0]
+        prob['Tower%s_max_thrust.It'%i] = mIzz[0]
+
+        prob['Tower%s_max_speed.Fy'%i] = Fy2
+        prob['Tower%s_max_speed.Fx'%i] = Fx2
+        prob['Tower%s_max_speed.Fz'%i] = Fz2
+        prob['Tower%s_max_speed.Mxx'%i] = Mxx2
+        prob['Tower%s_max_speed.Myy'%i] = Myy2
+        prob['Tower%s_max_speed.Vel'%i] = wind_Uref2
+
     for k in range(23):
-        prob = Problem()
-        root = prob.root = Group()
-
-        for i in range(nGroups):
-            root.add('d_param%s'%i, IndepVarComp('d_param%s'%i, d[k]), promotes=['*'])
-            root.add('t_param%s'%i, IndepVarComp('t_param%s'%i, t[k]), promotes=['*'])
-            root.add('get_z_param%s'%i, get_z(nPoints))
-            root.add('get_z_full%s'%i, get_z(nFull))
-            root.add('Tower%s_max_thrust'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
-            root.add('Tower%s_max_speed'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
-
-            root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(turbineZ[i])), promotes=['*'])
-
-        root.add('Zs', DeMUX(nTurbs))
-        root.add('hGroups', hGroups(nTurbs), promotes=['*'])
-        root.add('AEPGroup', AEPGroup(nTurbs, nDirections=nDirections,
-                    use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
-                    optimizingLayout=False, nSamples=0), promotes=['*'])
-        root.add('COEGroup', COEGroup(nTurbs, nGroups), promotes=['*'])
-
-        root.connect('turbineZ', 'Zs.Array')
-        for i in range(nGroups):
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_speed.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_speed.z_full'%i)
-            root.connect('Zs.output%s'%i, 'get_z_param%s.turbineZ'%i)
-            root.connect('Zs.output%s'%i, 'get_z_full%s.turbineZ'%i)
-            root.connect('Zs.output%s'%i, 'Tower%s_max_thrust.L'%i)
-            root.connect('Zs.output%s'%i, 'Tower%s_max_speed.L'%i)
-
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
-
-            root.connect('Tower%s_max_thrust.mass'%i, 'mass%s'%i)
-
-            root.connect('d_param%s'%i, 'Tower%s_max_thrust.d_param'%i)
-            root.connect('t_param%s'%i, 'Tower%s_max_thrust.t_param'%i)
-            root.connect('d_param%s'%i, 'Tower%s_max_speed.d_param'%i)
-            root.connect('t_param%s'%i, 'Tower%s_max_speed.t_param'%i)
-
-            root.connect('Tower%s_max_speed.Mt'%i, 'Tower%s_max_speed.Mt'%i)
-            root.connect('Tower%s_max_speed.It'%i, 'Tower%s_max_speed.It'%i)
-
-        # ----------------------
-
-        prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
-
-        prob.setup(check=True)
-
-        for i in range(nDirections):
-            prob['yaw%s'%i] = yaw[i]
-        prob['nGroups'] = nGroups
-        prob['turbineX'] = turbineX
-        prob['turbineY'] = turbineY
-
-        prob['ratedPower'] = np.ones(nTurbs)*1543.209877 # in kw
-
-        # assign values to constant inputs (not design variables)
-        prob['rotorDiameter'] = rotorDiameter
-        prob['rotor_diameter'] = rotor_diameter
-        prob['axialInduction'] = axialInduction
-        prob['generatorEfficiency'] = generatorEfficiency
-        prob['air_density'] = air_density
-        prob['windDirections'] = windDirections
-        prob['windFrequencies'] = windFrequencies
-        prob['Uref'] = windSpeeds
-
-        prob['Ct_in'] = Ct
-        prob['Cp_in'] = Cp
-        prob['floris_params:cos_spread'] = 1E12 # turns off cosine spread (just needs to be very large)
-
-        prob['L_reinforced'] = L_reinforced
-        prob['rho'] = rho
-        prob['E'] = E
-        prob['gamma_f'] = gamma_f
-        prob['gamma_b'] = gamma_b
-        prob['sigma_y'] = sigma_y
-        prob['m'] = m
-        prob['mrhox'] = mrhox
-        prob['zref'] = 50.
-        prob['z0'] = 0.
-
-        for i in range(nGroups):
-            prob['Tower%s_max_thrust.Fy'%i] = Fy1
-            prob['Tower%s_max_thrust.Fx'%i] = Fx1
-            prob['Tower%s_max_thrust.Fz'%i] = Fz1
-            prob['Tower%s_max_thrust.Mxx'%i] = Mxx1
-            prob['Tower%s_max_thrust.Myy'%i] = Myy1
-            prob['Tower%s_max_thrust.Vel'%i] = wind_Uref1
-            prob['Tower%s_max_thrust.Mt'%i] = m[0]
-            prob['Tower%s_max_thrust.It'%i] = mIzz[0]
-
-            prob['Tower%s_max_speed.Fy'%i] = Fy2
-            prob['Tower%s_max_speed.Fx'%i] = Fx2
-            prob['Tower%s_max_speed.Fz'%i] = Fz2
-            prob['Tower%s_max_speed.Mxx'%i] = Mxx2
-            prob['Tower%s_max_speed.Myy'%i] = Myy2
-            prob['Tower%s_max_speed.Vel'%i] = wind_Uref2
-
         prob['shearExp'] = shearExp[k]
+        prob['d_param0'] = d[k]
+        prob['t_param0'] = t[k]
         prob.run()
         COE[k] = prob['COE']
         AEP[k] = prob['AEP']
         cost[k] = prob['farm_cost']
         tower_cost[k] = prob['tower_cost']
+        BOS[k] = prob['BOS']
 
 
 
-        prob = Problem()
-        root = prob.root = Group()
+    prob = Problem()
+    root = prob.root = Group()
 
-        for i in range(nGroups):
-            root.add('d_param%s'%i, IndepVarComp('d_param%s'%i, d[k]), promotes=['*'])
-            root.add('t_param%s'%i, IndepVarComp('t_param%s'%i, t[k]), promotes=['*'])
-            root.add('get_z_param%s'%i, get_z(nPoints))
-            root.add('get_z_full%s'%i, get_z(nFull))
-            root.add('Tower%s_max_thrust'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
-            root.add('Tower%s_max_speed'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+    for i in range(nGroups):
+        root.add('d_param%s'%i, IndepVarComp('d_param%s'%i, d[k]), promotes=['*'])
+        root.add('t_param%s'%i, IndepVarComp('t_param%s'%i, t[k]), promotes=['*'])
+        root.add('get_z_param%s'%i, get_z(nPoints))
+        root.add('get_z_full%s'%i, get_z(nFull))
+        root.add('Tower%s_max_thrust'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
+        root.add('Tower%s_max_speed'%i, Tower(nPoints, nFull), promotes=['L_reinforced','m','mrhox','E','sigma_y','gamma_f','gamma_b','rhoAir','z0','zref','shearExp','rho'])
 
-            root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(turbineZ[i])), promotes=['*'])
+        root.add('turbineH%s'%i, IndepVarComp('turbineH%s'%i, float(turbineZ[i])), promotes=['*'])
 
-        root.add('Zs', DeMUX(1))
-        root.add('hGroups', hGroups(1), promotes=['*'])
-        root.add('AEPGroup', AEPGroup(1, nDirections=nDirections,
-                    use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
-                    optimizingLayout=False, nSamples=0), promotes=['*'])
-        root.add('COEGroup', COEGroup(1, nGroups), promotes=['*'])
+    root.add('Zs', DeMUX(1))
+    root.add('hGroups', hGroups(1), promotes=['*'])
+    root.add('AEPGroup', AEPGroup(1, nDirections=nDirections,
+                use_rotor_components=use_rotor_components, datasize=datasize, differentiable=True,
+                optimizingLayout=False, nSamples=0), promotes=['*'])
+    root.add('COEGroup', COEGroup(1, nGroups), promotes=['*'])
 
-        root.connect('turbineZ', 'Zs.Array')
-        for i in range(nGroups):
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_speed.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_speed.z_full'%i)
-            root.connect('Zs.output%s'%i, 'get_z_param%s.turbineZ'%i)
-            root.connect('Zs.output%s'%i, 'get_z_full%s.turbineZ'%i)
-            root.connect('Zs.output%s'%i, 'Tower%s_max_thrust.L'%i)
-            root.connect('Zs.output%s'%i, 'Tower%s_max_speed.L'%i)
+    root.connect('turbineZ', 'Zs.Array')
+    for i in range(nGroups):
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_speed.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_speed.z_full'%i)
+        root.connect('Zs.output%s'%i, 'get_z_param%s.turbineZ'%i)
+        root.connect('Zs.output%s'%i, 'get_z_full%s.turbineZ'%i)
+        root.connect('Zs.output%s'%i, 'Tower%s_max_thrust.L'%i)
+        root.connect('Zs.output%s'%i, 'Tower%s_max_speed.L'%i)
 
-            root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
-            root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
+        root.connect('get_z_param%s.z_param'%i, 'Tower%s_max_thrust.z_param'%i)
+        root.connect('get_z_full%s.z_param'%i, 'Tower%s_max_thrust.z_full'%i)
 
-            root.connect('Tower%s_max_thrust.mass'%i, 'mass%s'%i)
+        root.connect('Tower%s_max_thrust.mass'%i, 'mass%s'%i)
 
-            root.connect('d_param%s'%i, 'Tower%s_max_thrust.d_param'%i)
-            root.connect('t_param%s'%i, 'Tower%s_max_thrust.t_param'%i)
-            root.connect('d_param%s'%i, 'Tower%s_max_speed.d_param'%i)
-            root.connect('t_param%s'%i, 'Tower%s_max_speed.t_param'%i)
+        root.connect('d_param%s'%i, 'Tower%s_max_thrust.d_param'%i)
+        root.connect('t_param%s'%i, 'Tower%s_max_thrust.t_param'%i)
+        root.connect('d_param%s'%i, 'Tower%s_max_speed.d_param'%i)
+        root.connect('t_param%s'%i, 'Tower%s_max_speed.t_param'%i)
 
-            root.connect('Tower%s_max_speed.Mt'%i, 'Tower%s_max_speed.Mt'%i)
-            root.connect('Tower%s_max_speed.It'%i, 'Tower%s_max_speed.It'%i)
+        root.connect('Tower%s_max_speed.Mt'%i, 'Tower%s_max_speed.Mt'%i)
+        root.connect('Tower%s_max_speed.It'%i, 'Tower%s_max_speed.It'%i)
 
-        # ----------------------
+    # ----------------------
 
-        prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
+    prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
 
-        prob.setup(check=True)
+    prob.setup(check=True)
 
-        for i in range(nDirections):
-            prob['yaw%s'%i] = np.array([0.])
-        prob['nGroups'] = nGroups
-        prob['turbineX'] = np.array([0.])
-        prob['turbineY'] = np.array([0.])
+    for i in range(nDirections):
+        prob['yaw%s'%i] = np.array([0.])
+    prob['nGroups'] = nGroups
+    prob['turbineX'] = np.array([0.])
+    prob['turbineY'] = np.array([0.])
 
-        prob['ratedPower'] = np.ones(1)*1543.209877 # in kw
+    prob['ratedPower'] = np.ones(1)*1543.209877 # in kw
 
-        # assign values to constant inputs (not design variables)
-        prob['rotorDiameter'] = np.ones(1)*rotor_diameter
-        prob['rotor_diameter'] = rotor_diameter
-        prob['axialInduction'] = axialInduction[0]
-        prob['generatorEfficiency'] = generatorEfficiency[0]
-        prob['air_density'] = air_density
-        prob['windDirections'] = windDirections
-        prob['windFrequencies'] = windFrequencies
-        prob['Uref'] = windSpeeds
+    # assign values to constant inputs (not design variables)
+    prob['rotorDiameter'] = np.ones(1)*rotor_diameter
+    prob['rotor_diameter'] = rotor_diameter
+    prob['axialInduction'] = axialInduction[0]
+    prob['generatorEfficiency'] = generatorEfficiency[0]
+    prob['air_density'] = air_density
+    prob['windDirections'] = windDirections
+    prob['windFrequencies'] = windFrequencies
+    prob['Uref'] = windSpeeds
 
-        prob['Ct_in'] = Ct[0]
-        prob['Cp_in'] = Cp[0]
-        prob['floris_params:cos_spread'] = 1E12 # turns off cosine spread (just needs to be very large)
+    prob['Ct_in'] = Ct[0]
+    prob['Cp_in'] = Cp[0]
+    prob['floris_params:cos_spread'] = 1E12 # turns off cosine spread (just needs to be very large)
 
-        prob['L_reinforced'] = L_reinforced
-        prob['rho'] = rho
-        prob['E'] = E
-        prob['gamma_f'] = gamma_f
-        prob['gamma_b'] = gamma_b
-        prob['sigma_y'] = sigma_y
-        prob['m'] = m
-        prob['mrhox'] = mrhox
-        prob['zref'] = 50.
-        prob['z0'] = 0.
+    prob['L_reinforced'] = L_reinforced
+    prob['rho'] = rho
+    prob['E'] = E
+    prob['gamma_f'] = gamma_f
+    prob['gamma_b'] = gamma_b
+    prob['sigma_y'] = sigma_y
+    prob['m'] = m
+    prob['mrhox'] = mrhox
+    prob['zref'] = 50.
+    prob['z0'] = 0.
 
-        for i in range(nGroups):
-            prob['Tower%s_max_thrust.Fy'%i] = Fy1
-            prob['Tower%s_max_thrust.Fx'%i] = Fx1
-            prob['Tower%s_max_thrust.Fz'%i] = Fz1
-            prob['Tower%s_max_thrust.Mxx'%i] = Mxx1
-            prob['Tower%s_max_thrust.Myy'%i] = Myy1
-            prob['Tower%s_max_thrust.Vel'%i] = wind_Uref1
-            prob['Tower%s_max_thrust.Mt'%i] = m[0]
-            prob['Tower%s_max_thrust.It'%i] = mIzz[0]
+    for i in range(nGroups):
+        prob['Tower%s_max_thrust.Fy'%i] = Fy1
+        prob['Tower%s_max_thrust.Fx'%i] = Fx1
+        prob['Tower%s_max_thrust.Fz'%i] = Fz1
+        prob['Tower%s_max_thrust.Mxx'%i] = Mxx1
+        prob['Tower%s_max_thrust.Myy'%i] = Myy1
+        prob['Tower%s_max_thrust.Vel'%i] = wind_Uref1
+        prob['Tower%s_max_thrust.Mt'%i] = m[0]
+        prob['Tower%s_max_thrust.It'%i] = mIzz[0]
 
-            prob['Tower%s_max_speed.Fy'%i] = Fy2
-            prob['Tower%s_max_speed.Fx'%i] = Fx2
-            prob['Tower%s_max_speed.Fz'%i] = Fz2
-            prob['Tower%s_max_speed.Mxx'%i] = Mxx2
-            prob['Tower%s_max_speed.Myy'%i] = Myy2
-            prob['Tower%s_max_speed.Vel'%i] = wind_Uref2
+        prob['Tower%s_max_speed.Fy'%i] = Fy2
+        prob['Tower%s_max_speed.Fx'%i] = Fx2
+        prob['Tower%s_max_speed.Fz'%i] = Fz2
+        prob['Tower%s_max_speed.Mxx'%i] = Mxx2
+        prob['Tower%s_max_speed.Myy'%i] = Myy2
+        prob['Tower%s_max_speed.Vel'%i] = wind_Uref2
 
+    for k in range(23):
         prob['shearExp'] = shearExp[k]
+        prob['d_param0'] = d[k]
+        prob['t_param0'] = t[k]
         prob.run()
         idealAEP[k] = prob['AEP']*81.
 
-    print 'ideal AEP: ', repr(idealAEP)
-    print 'AEP: ', repr(AEP)
-    print 'COE: ', repr(COE)
-    print 'cost: ', repr(cost)
-    print 'tower cost: ', repr(tower_cost)
+print 'ideal AEP: ', repr(idealAEP)
+print 'AEP: ', repr(AEP)
+print 'COE: ', repr(COE)
+print 'cost: ', repr(cost)
+print 'tower cost: ', repr(tower_cost)
+print 'BOS: ', repr(BOS)
 
-    print 'wake loss: ', repr((idealAEP-AEP)/idealAEP*100.)
+print 'wake loss: ', repr((idealAEP-AEP)/idealAEP*100.)
 
-    # ideal AEP:  array([  4.10465416e+08,   4.17767591e+08,   4.25199673e+08,
-    #          4.32763970e+08,   4.40462837e+08,   4.48298666e+08,
-    #          4.56273895e+08,   4.64391003e+08,   4.72652514e+08,
-    #          4.80948195e+08,   4.88928743e+08,   4.97051265e+08,
-    #          5.05318286e+08,   5.13678226e+08,   5.21896202e+08,
-    #          5.30260376e+08,   5.38570749e+08,   5.46787472e+08,
-    #          5.55060792e+08,   5.63261342e+08,   5.71475307e+08,
-    #          5.79223386e+08,   5.86466197e+08])
-    # AEP:  array([  2.47328309e+08,   2.51728278e+08,   2.56206521e+08,
-    #          2.60764432e+08,   2.65403429e+08,   2.70124953e+08,
-    #          2.74930473e+08,   2.79821484e+08,   2.84799505e+08,
-    #          2.89842411e+08,   2.94877917e+08,   3.00003005e+08,
-    #          3.05219268e+08,   3.10511615e+08,   3.15808394e+08,
-    #          3.21199404e+08,   3.26643798e+08,   3.32134365e+08,
-    #          3.37710839e+08,   3.43302754e+08,   3.48966346e+08,
-    #          3.54602247e+08,   3.60197381e+08])
-    # COE:  array([ 85.0410799 ,  83.67377623,  82.33013751,  81.01019268,
-    #         79.71309569,  78.4379296 ,  77.1860451 ,  75.95545808,
-    #         74.74630745,  73.56388118,  72.42358968,  71.30264436,
-    #         70.1973027 ,  69.11906154,  68.07330913,  67.04478708,
-    #         66.04059963,  65.06119631,  64.09640556,  63.16527345,
-    #         62.25029853,  61.36869011,  60.5214502 ])
-    # cost:  array([  2.10330665e+10,   2.10630556e+10,   2.10935181e+10,
-    #          2.11245769e+10,   2.11561289e+10,   2.11880421e+10,
-    #          2.12207959e+10,   2.12539690e+10,   2.12877114e+10,
-    #          2.13219327e+10,   2.13561173e+10,   2.13910076e+10,
-    #          2.14255694e+10,   2.14622714e+10,   2.14981225e+10,
-    #          2.15347456e+10,   2.15717523e+10,   2.16090591e+10,
-    #          2.16460509e+10,   2.16848123e+10,   2.17232592e+10,
-    #          2.17614754e+10,   2.17996679e+10])
-    # tower cost:  array([ 33623682.97330754,  33646352.1523455 ,  33668986.58628966,
-    #         33692420.35947319,  33715837.93248764,  33738210.63789596,
-    #         33762974.20537763,  33786984.82206847,  33811270.62580765,
-    #         33836158.45814328,  33861108.45444167,  33887214.47070372,
-    #         33906855.3459703 ,  33938727.26815102,  33964188.70571121,
-    #         33991083.7832114 ,  34018397.29465535,  34045842.4089272 ,
-    #         34067155.95865495,  34100699.76286625,  34128750.13412264,
-    #         34156351.28385241,  34185597.63273675])
-    # wake loss:  array([ 39.74442187,  39.74442187,  39.74442187,  39.74442187,
-    #         39.74442187,  39.74442187,  39.74442187,  39.74442187,
-    #         39.74442187,  39.7352119 ,  39.68897899,  39.64344805,
-    #         39.59861015,  39.55133791,  39.488275  ,  39.42609737,
-    #         39.34988143,  39.25713706,  39.1578645 ,  39.05089368,
-    #         38.93588363,  38.77970824,  38.58173198])
+# ideal AEP:  array([  4.10465416e+08,   4.17767591e+08,   4.25199673e+08,
+#          4.32763970e+08,   4.40462837e+08,   4.48298666e+08,
+#          4.56273895e+08,   4.64391003e+08,   4.72652514e+08,
+#          4.80948195e+08,   4.88928743e+08,   4.97051265e+08,
+#          5.05318286e+08,   5.13678226e+08,   5.21896202e+08,
+#          5.30260376e+08,   5.38570749e+08,   5.46787472e+08,
+#          5.55060792e+08,   5.63261342e+08,   5.71475307e+08,
+#          5.79223386e+08,   5.86466197e+08])
+# AEP:  array([  2.47328309e+08,   2.51728278e+08,   2.56206521e+08,
+#          2.60764432e+08,   2.65403429e+08,   2.70124953e+08,
+#          2.74930473e+08,   2.79821484e+08,   2.84799505e+08,
+#          2.89842411e+08,   2.94877917e+08,   3.00003005e+08,
+#          3.05219268e+08,   3.10511615e+08,   3.15808394e+08,
+#          3.21199404e+08,   3.26643798e+08,   3.32134365e+08,
+#          3.37710839e+08,   3.43302754e+08,   3.48966346e+08,
+#          3.54602247e+08,   3.60197381e+08])
+# COE:  array([ 85.0410799 ,  83.67377623,  82.33013751,  81.01019268,
+#         79.71309569,  78.4379296 ,  77.1860451 ,  75.95545808,
+#         74.74630745,  73.56388118,  72.42358968,  71.30264436,
+#         70.1973027 ,  69.11906154,  68.07330913,  67.04478708,
+#         66.04059963,  65.06119631,  64.09640556,  63.16527345,
+#         62.25029853,  61.36869011,  60.5214502 ])
+# cost:  array([  2.10330665e+10,   2.10630556e+10,   2.10935181e+10,
+#          2.11245769e+10,   2.11561289e+10,   2.11880421e+10,
+#          2.12207959e+10,   2.12539690e+10,   2.12877114e+10,
+#          2.13219327e+10,   2.13561173e+10,   2.13910076e+10,
+#          2.14255694e+10,   2.14622714e+10,   2.14981225e+10,
+#          2.15347456e+10,   2.15717523e+10,   2.16090591e+10,
+#          2.16460509e+10,   2.16848123e+10,   2.17232592e+10,
+#          2.17614754e+10,   2.17996679e+10])
+# tower cost:  array([ 33623682.97330754,  33646352.1523455 ,  33668986.58628966,
+#         33692420.35947319,  33715837.93248764,  33738210.63789596,
+#         33762974.20537763,  33786984.82206847,  33811270.62580765,
+#         33836158.45814328,  33861108.45444167,  33887214.47070372,
+#         33906855.3459703 ,  33938727.26815102,  33964188.70571121,
+#         33991083.7832114 ,  34018397.29465535,  34045842.4089272 ,
+#         34067155.95865495,  34100699.76286625,  34128750.13412264,
+#         34156351.28385241,  34185597.63273675])
+# wake loss:  array([ 39.74442187,  39.74442187,  39.74442187,  39.74442187,
+#         39.74442187,  39.74442187,  39.74442187,  39.74442187,
+#         39.74442187,  39.7352119 ,  39.68897899,  39.64344805,
+#         39.59861015,  39.55133791,  39.488275  ,  39.42609737,
+#         39.34988143,  39.25713706,  39.1578645 ,  39.05089368,
+#         38.93588363,  38.77970824,  38.58173198])
