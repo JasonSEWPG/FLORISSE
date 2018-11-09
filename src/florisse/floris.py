@@ -232,7 +232,7 @@ def add_floris_params_IndepVarComps(openmdao_object, use_rotor_components=False)
 
     # ###############    Wake Expansion Continuation (WEC) ##############
     openmdao_object.add('fp20', IndepVarComp('floris_params:WECRelaxationFactor', val=1.0, pass_by_obj=True,
-                                             desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012'))
+                                             desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012'), promotes=['*'])
 
 class Floris(Component):
 
