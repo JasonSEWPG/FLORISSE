@@ -94,6 +94,10 @@ def add_floris_parameters(openmdao_comp, use_rotor_components=False):
                             desc='override all parameters and use FLORIS as original in first Wind Energy paper')
 
 
+    # #################    Wake Expansion Continuation (WEC)    #################
+    openmdao_comp.add_param('floris_params:WECRelaxationFactor', val=1.0, pass_by_obj=True,
+                            desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012')
+
     ####### apply to things now external to the Floris model
     # openmdao_comp.add_param('floris_params:CTcorrected', True, pass_by_obj=True,
     #                desc='CT factor already corrected by CCBlade calculation (approximately factor cos(yaw)^2)')
@@ -226,6 +230,9 @@ def add_floris_params_IndepVarComps(openmdao_object, use_rotor_components=False)
                                                   'parametric model for wake effect-a CFD simulation study'),
                         promotes=['*'])
 
+    # ###############    Wake Expansion Continuation (WEC) ##############
+    openmdao_object.add('fp20', IndepVarComp('floris_params:WECRelaxationFactor', val=1.0, pass_by_obj=True,
+                                             desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012'))
 
 class Floris(Component):
 
@@ -272,6 +279,7 @@ class Floris(Component):
         self.add_param('floris_params:shearExp', 0.15, desc='wind shear exponent')
         self.add_param('floris_params:z_ref', 90., units='m', desc='height at which wind_speed is measured')
         self.add_param('floris_params:z0', 0., units='m', desc='ground height')
+
 
         # output arrays
         self.add_output('wtVelocity%i' % direction_id, val=np.zeros(nTurbines), units='m/s',
@@ -351,6 +359,9 @@ class Floris(Component):
         shearCoefficientAlpha = params['floris_params:shearCoefficientAlpha']
         shearZh = params['floris_params:shearZh']
 
+        # Wake Expansion Continuation (WEC)
+        WECRelaxationFactor = params['floris_params:WECRelaxationFactor']
+
         if self.nSamples > 0:
             wsPositionXYZw = np.array([params['wsPositionXw'], params['wsPositionYw'], params['wsPositionZ']])
         else:
@@ -373,8 +384,9 @@ class Floris(Component):
                                                MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
                                                Region2CT, keCorrArray, useWakeAngle,
                                                adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, wsPositionXYZw,
-                                               shearCoefficientAlpha, shearZh)
+                                               shearCoefficientAlpha, shearZh, WECRelaxationFactor)
 
+        # TODO: May need to add the WECRelaxationFactor variable to this 'else' statement.
         else:
             # call to fortran code to obtain output values
             # print rotorDiameter.shape

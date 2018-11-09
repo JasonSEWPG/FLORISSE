@@ -222,7 +222,7 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
                           & adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, &
                           & wsPositionXYZw, shearCoefficientAlpha, shearZh, &
                           & wtVelocity, wsArray, wakeCentersYT_vec, wakeCentersZT_vec, &
-                          & wakeDiametersT_vec, wakeOverlapTRel_vec)
+                          & wakeDiametersT_vec, wakeOverlapTRel_vec, WECRelaxationFactor)
 
 ! independent variables: yawDeg Ct turbineXw turbineYw rotorDiameter a_in
 ! dependent variables: wtVelocity
@@ -244,6 +244,7 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
     logical, intent(in) :: useWakeAngle, adjustInitialWakeDiamToYaw, axialIndProvided, &
                            & useaUbU
     real(dp), dimension(3, nSamples), intent(in) :: wsPositionXYZw
+    real(dp), intent(in) :: WECRelaxationFactor
 
 ! local (General)
     real(dp), dimension(nTurbines) :: ke, yaw
@@ -413,9 +414,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
     do turb = 1, nTurbines
 
         if (adjustInitialWakeDiamToYaw) then
-            wakeDiameter0 = rotorDiameter(turb)*cos(yaw(turb))
+            wakeDiameter0 = WECRelaxationFactor*rotorDiameter(turb)*cos(yaw(turb))
         else
-            wakeDiameter0 = rotorDiameter(turb)
+            wakeDiameter0 = WECRelaxationFactor*rotorDiameter(turb)
         end if
 
 ! calculate the wake diameter of each wake at each turbine
