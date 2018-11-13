@@ -414,9 +414,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
     do turb = 1, nTurbines
 
         if (adjustInitialWakeDiamToYaw) then
-            wakeDiameter0 = WECRelaxationFactor*rotorDiameter(turb)*cos(yaw(turb))
+            wakeDiameter0 = rotorDiameter(turb)*cos(yaw(turb))
         else
-            wakeDiameter0 = WECRelaxationFactor*rotorDiameter(turb)
+            wakeDiameter0 = rotorDiameter(turb)
         end if
 
 ! calculate the wake diameter of each wake at each turbine
@@ -471,9 +471,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
 
             if (turbineXw(turb) < turbineXw(turbI)) then
                 zone = 2
-                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0 + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
                 zone = 3
-                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0 + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
             end if
 
         end do
@@ -530,9 +530,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
 
             if (turbineXw(turb) < velX(loc)) then
                 zone = 2
-                wakeDiameters(loc, turb, zone) = wakeDiameter0 + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiameters(loc, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
                 zone = 3
-                wakeDiameters(loc, turb, zone) = wakeDiameter0 + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiameters(loc, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
             end if
 
         end do
