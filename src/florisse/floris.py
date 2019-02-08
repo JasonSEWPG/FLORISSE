@@ -95,7 +95,7 @@ def add_floris_parameters(openmdao_comp, use_rotor_components=False):
 
 
     # #################    Wake Expansion Continuation (WEC)    #################
-    openmdao_comp.add_param('floris_params:WECRelaxationFactor', val=1.0, pass_by_obj=True,
+    openmdao_comp.add_param('floris_params:wec_factor', val=1.0, pass_by_obj=True,
                             desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012')
 
     ####### apply to things now external to the Floris model
@@ -231,7 +231,7 @@ def add_floris_params_IndepVarComps(openmdao_object, use_rotor_components=False)
                         promotes=['*'])
 
     # ###############    Wake Expansion Continuation (WEC) ##############
-    openmdao_object.add('fp20', IndepVarComp('floris_params:WECRelaxationFactor', val=1.0, pass_by_obj=True,
+    openmdao_object.add('fp20', IndepVarComp('floris_params:wec_factor', val=1.0, pass_by_obj=True,
                                              desc='relaxation factor as defined in Thomas 2018. doi:10.1088/1742-6596/1037/4/042012'), promotes=['*'])
 
 class Floris(Component):
@@ -360,7 +360,7 @@ class Floris(Component):
         shearZh = params['floris_params:shearZh']
 
         # Wake Expansion Continuation (WEC)
-        WECRelaxationFactor = params['floris_params:WECRelaxationFactor']
+        wec_factor = params['floris_params:wec_factor']
 
         if self.nSamples > 0:
             wsPositionXYZw = np.array([params['wsPositionXw'], params['wsPositionYw'], params['wsPositionZ']])
@@ -384,9 +384,9 @@ class Floris(Component):
                                                MU, aU, bU, initialWakeAngle, cos_spread, keCorrCT,
                                                Region2CT, keCorrArray, useWakeAngle,
                                                adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, wsPositionXYZw,
-                                               shearCoefficientAlpha, shearZh, WECRelaxationFactor)
+                                               shearCoefficientAlpha, shearZh, wec_factor)
 
-        # TODO: May need to add the WECRelaxationFactor variable to this 'else' statement.
+        # TODO: May need to add the wec_factor variable to this 'else' statement.
         else:
             # call to fortran code to obtain output values
             # print rotorDiameter.shape

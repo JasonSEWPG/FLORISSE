@@ -222,7 +222,7 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
                           & adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, &
                           & wsPositionXYZw, shearCoefficientAlpha, shearZh, &
                           & wtVelocity, wsArray, wakeCentersYT_vec, wakeCentersZT_vec, &
-                          & wakeDiametersT_vec, wakeOverlapTRel_vec, WECRelaxationFactor)
+                          & wakeDiametersT_vec, wakeOverlapTRel_vec, wec_factor)
 
 ! independent variables: yawDeg Ct turbineXw turbineYw rotorDiameter a_in
 ! dependent variables: wtVelocity
@@ -244,7 +244,7 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
     logical, intent(in) :: useWakeAngle, adjustInitialWakeDiamToYaw, axialIndProvided, &
                            & useaUbU
     real(dp), dimension(3, nSamples), intent(in) :: wsPositionXYZw
-    real(dp), intent(in) :: WECRelaxationFactor
+    real(dp), intent(in) :: wec_factor
 
 ! local (General)
     real(dp), dimension(nTurbines) :: ke, yaw
@@ -471,9 +471,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
 
             if (turbineXw(turb) < turbineXw(turbI)) then
                 zone = 2
-                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*wec_factor + 2.0_dp*ke(turb)*me(zone)*deltax
                 zone = 3
-                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiametersT_mat(turbI, turb, zone) = wakeDiameter0*wec_factor + 2.0_dp*ke(turb)*me(zone)*deltax
             end if
 
         end do
@@ -530,9 +530,9 @@ subroutine floris(nTurbines, nSamples, turbineXw, turbineYw, turbineZ, yawDeg, &
 
             if (turbineXw(turb) < velX(loc)) then
                 zone = 2
-                wakeDiameters(loc, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiameters(loc, turb, zone) = wakeDiameter0*wec_factor + 2.0_dp*ke(turb)*me(zone)*deltax
                 zone = 3
-                wakeDiameters(loc, turb, zone) = wakeDiameter0*WECRelaxationFactor + 2.0_dp*ke(turb)*me(zone)*deltax
+                wakeDiameters(loc, turb, zone) = wakeDiameter0*wec_factor + 2.0_dp*ke(turb)*me(zone)*deltax
             end if
 
         end do
