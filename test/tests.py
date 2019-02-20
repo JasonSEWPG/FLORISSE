@@ -1,10 +1,10 @@
 import unittest
-# from florisse.GeneralWindFarmComponents import *
+# from plantenergy.GeneralWindFarmComponents import *
 from openmdao.api import pyOptSparseDriver, Problem
 
-from florisse.floris import *
-from florisse.OptimizationGroups import *
-from florisse.GeneralWindFarmComponents import calculate_boundary
+from plantenergy.floris import *
+from plantenergy.OptimizationGroups import *
+from plantenergy.GeneralWindFarmComponents import calculate_boundary
 
 import cPickle as pickle
 
@@ -72,7 +72,7 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
             prob.driver.add_desvar('yaw%i' % direction_id, lower=-30.0, upper=30.0, scaler=1.0)
 
         # add constraints
-        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1.)*nTurbines/2.)))
+        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1)*nTurbines/2)))
         prob.driver.add_constraint('boundaryDistances', lower=np.zeros(nVertices*nTurbines), scaler=1.0)
 
 
@@ -177,7 +177,7 @@ class TotalDerivTestsFlorisAEPOptRotor(unittest.TestCase):
             prob.driver.add_desvar('yaw%i' % direction_id, lower=-30.0, upper=30.0, scaler=1E-1)
 
         # add constraints
-        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1.)*nTurbines/2.)))
+        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1)*nTurbines/2)))
 
         # initialize problem
         prob.setup()
