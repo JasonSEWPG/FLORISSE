@@ -1,7 +1,9 @@
 import numpy as np
-from openmdao.api import Group, Problem, IndepVarComp, pyOptSparseDriver, view_tree, profile
-# from FLORISSE3D.floris import Floris as FLORIS3D
+
+import openmdao.api as om
+
 from florisse.floris import Floris as floris
+
 
 if __name__ == '__main__':
     """setup the turbine locations"""
