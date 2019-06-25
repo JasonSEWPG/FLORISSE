@@ -52,7 +52,7 @@ def add_floris_parameters(comp, use_rotor_components=False):
     # original model
     comp.add_discrete_input('floris_params:MU', np.array([0.5, 1.0, 5.5]),
                             desc='velocity deficit decay rates for each zone. Middle zone must always be 1.0')
-    comp.add_discrete_input('floris_params:aU', 5.0 if not use_rotor_components else 12.0, units='deg',
+    comp.add_discrete_input('floris_params:aU', 5.0 if not use_rotor_components else 12.0,
                             desc='zone decay adjustment parameter independent of yaw')
     comp.add_discrete_input('floris_params:bU', 1.66 if not use_rotor_components else 1.3,
                             desc='zone decay adjustment parameter dependent yaw')
@@ -159,15 +159,15 @@ class Floris(om.ExplicitComponent):
         # ############################ visualization arrays ##################################
         if nSamples > 0:
             # visualization input
-            self.add_discrete_input('wsPositionXw', np.zeros(nSamples), units='m',
+            self.add_discrete_input('wsPositionXw', np.zeros(nSamples),
                            desc='downwind position of desired measurements in wind ref. frame')
-            self.add_discrete_input('wsPositionYw', np.zeros(nSamples), units='m',
+            self.add_discrete_input('wsPositionYw', np.zeros(nSamples),
                            desc='crosswind position of desired measurements in wind ref. frame')
-            self.add_discrete_input('wsPositionZ', np.zeros(nSamples), units='m',
+            self.add_discrete_input('wsPositionZ', np.zeros(nSamples),
                            desc='position of desired measurements in wind ref. frame')
 
             # visualization output
-            self.add_discrete_output('wsArray%i' % direction_id, np.zeros(nSamples), units='m/s',
+            self.add_discrete_output('wsArray%i' % direction_id, np.zeros(nSamples),
                                      desc='wind speed at measurement locations')
 
         # Derivatives
@@ -204,35 +204,35 @@ class Floris(om.ExplicitComponent):
         z0 = inputs['floris_params:z0']
 
         # wake deflection
-        kd = inputs['floris_params:kd']
-        bd = inputs['floris_params:bd']
-        initialWakeDisplacement = inputs['floris_params:initialWakeDisplacement']
-        useWakeAngle = inputs['floris_params:useWakeAngle']
-        initialWakeAngle = inputs['floris_params:initialWakeAngle']
+        kd = discrete_inputs['floris_params:kd']
+        bd = discrete_inputs['floris_params:bd']
+        initialWakeDisplacement = discrete_inputs['floris_params:initialWakeDisplacement']
+        useWakeAngle = discrete_inputs['floris_params:useWakeAngle']
+        initialWakeAngle = discrete_inputs['floris_params:initialWakeAngle']
 
         # wake expansion
-        ke = inputs['floris_params:ke']
-        adjustInitialWakeDiamToYaw = inputs['floris_params:adjustInitialWakeDiamToYaw']
+        ke = discrete_inputs['floris_params:ke']
+        adjustInitialWakeDiamToYaw = discrete_inputs['floris_params:adjustInitialWakeDiamToYaw']
 
         # velocity deficit
-        MU = inputs['floris_params:MU']
-        useaUbU = inputs['floris_params:useaUbU']
-        aU = inputs['floris_params:aU']
-        bU = inputs['floris_params:bU']
-        me = inputs['floris_params:me']
-        cos_spread = inputs['floris_params:cos_spread']
+        MU = discrete_inputs['floris_params:MU']
+        useaUbU = discrete_inputs['floris_params:useaUbU']
+        aU = discrete_inputs['floris_params:aU']
+        bU = discrete_inputs['floris_params:bU']
+        me = discrete_inputs['floris_params:me']
+        cos_spread = discrete_inputs['floris_params:cos_spread']
 
         # logicals
-        Region2CT = inputs['floris_params:Region2CT']
+        Region2CT = discrete_inputs['floris_params:Region2CT']
         axialInduction = inputs['axialInduction']
-        keCorrCT = inputs['floris_params:keCorrCT']
-        keCorrArray = inputs['floris_params:keCorrArray']
-        axialIndProvided = inputs['floris_params:axialIndProvided']
+        keCorrCT = discrete_inputs['floris_params:keCorrCT']
+        keCorrArray = discrete_inputs['floris_params:keCorrArray']
+        axialIndProvided = discrete_inputs['floris_params:axialIndProvided']
 
         # visualization
         # shear layer (only influences visualization)
-        shearCoefficientAlpha = inputs['floris_params:shearCoefficientAlpha']
-        shearZh = inputs['floris_params:shearZh']
+        shearCoefficientAlpha = discrete_inputs['floris_params:shearCoefficientAlpha']
+        shearZh = discrete_inputs['floris_params:shearZh']
 
         if nSamples > 0:
             wsPositionXYZw = np.array([discrete_inputs['wsPositionXw'],
@@ -272,12 +272,13 @@ class Floris(om.ExplicitComponent):
         # pass outputs to self
         outputs['wtVelocity%i' % direction_id] = wtVelocity
         outputs['wakeCentersYT'] = wakeCentersYT
+        outputs['wakeCentersZT'] = wakeCentersZT
         outputs['wakeDiametersT'] = wakeDiametersT
         outputs['wakeOverlapTRel'] = wakeOverlapTRel
         if nSamples > 0:
             discrete_outputs['wsArray%i' % direction_id] = wsArray
 
-    def compute_partials(self, inputs, partials):
+    def compute_partials(self, inputs, partials, discrete_inputs):
         direction_id = self.options['direction_id']
 
         # x and y positions w.r.t. the wind dir. (wind dir. = +x)
@@ -299,30 +300,30 @@ class Floris(om.ExplicitComponent):
         z0 = inputs['floris_params:z0']
 
         # wake deflection
-        kd = inputs['floris_params:kd']
-        bd = inputs['floris_params:bd']
-        initialWakeDisplacement = inputs['floris_params:initialWakeDisplacement']
-        useWakeAngle = inputs['floris_params:useWakeAngle']
-        initialWakeAngle = inputs['floris_params:initialWakeAngle']
+        kd = discrete_inputs['floris_params:kd']
+        bd = discrete_inputs['floris_params:bd']
+        initialWakeDisplacement = discrete_inputs['floris_params:initialWakeDisplacement']
+        useWakeAngle = discrete_inputs['floris_params:useWakeAngle']
+        initialWakeAngle = discrete_inputs['floris_params:initialWakeAngle']
 
         # wake expansion
-        ke = inputs['floris_params:ke']
-        adjustInitialWakeDiamToYaw = inputs['floris_params:adjustInitialWakeDiamToYaw']
+        ke = discrete_inputs['floris_params:ke']
+        adjustInitialWakeDiamToYaw = discrete_inputs['floris_params:adjustInitialWakeDiamToYaw']
 
         # velocity deficit
-        MU = inputs['floris_params:MU']
-        useaUbU = inputs['floris_params:useaUbU']
-        aU = inputs['floris_params:aU']
-        bU = inputs['floris_params:bU']
-        me = inputs['floris_params:me']
-        cos_spread = inputs['floris_params:cos_spread']
+        MU = discrete_inputs['floris_params:MU']
+        useaUbU = discrete_inputs['floris_params:useaUbU']
+        aU = discrete_inputs['floris_params:aU']
+        bU = discrete_inputs['floris_params:bU']
+        me = discrete_inputs['floris_params:me']
+        cos_spread = discrete_inputs['floris_params:cos_spread']
 
         # logicals
-        Region2CT = inputs['floris_params:Region2CT']
+        Region2CT = discrete_inputs['floris_params:Region2CT']
         axialInduction = inputs['axialInduction']
-        keCorrCT = inputs['floris_params:keCorrCT']
-        keCorrArray = inputs['floris_params:keCorrArray']
-        axialIndProvided = inputs['floris_params:axialIndProvided']
+        keCorrCT = discrete_inputs['floris_params:keCorrCT']
+        keCorrArray = discrete_inputs['floris_params:keCorrArray']
+        axialIndProvided = discrete_inputs['floris_params:axialIndProvided']
 
         # define jacobian size
         nTurbines = len(turbineXw)
@@ -346,6 +347,6 @@ class Floris(om.ExplicitComponent):
         partials['wtVelocity%i' % direction_id, 'hubHeight'] = turbineZb
         partials['wtVelocity%i' % direction_id, 'yaw%i' % direction_id] = yawDegb
         partials['wtVelocity%i' % direction_id, 'rotorDiameter'] = rotorDiameterb
-        partials['wtVelocity%i' % direction_id, 'Vinf'] = Vinfb
+        partials['wtVelocity%i' % direction_id, 'wind_speed'] = Vinfb
         partials['wtVelocity%i' % direction_id, 'Ct'] = Ctb
         partials['wtVelocity%i' % direction_id, 'axialInduction'] = axialInductionb
