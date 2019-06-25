@@ -175,8 +175,8 @@ class Floris(om.ExplicitComponent):
             self.declare_partials(of='*', wrt='*')
 
         else:
-            self.declare_partials(of='*', wrt='*', method='fd', form='forward')
-
+            self.declare_partials(of='*', wrt='*', method='fd', form='forward', step=1.0e-6,
+                                  step_calc='rel')
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         opt = self.options
