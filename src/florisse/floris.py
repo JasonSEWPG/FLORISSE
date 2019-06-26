@@ -53,7 +53,7 @@ def add_floris_parameters(comp, use_rotor_components=False):
     comp.add_discrete_input('floris_params:MU', np.array([0.5, 1.0, 5.5]),
                             desc='velocity deficit decay rates for each zone. Middle zone must always be 1.0')
     comp.add_discrete_input('floris_params:aU', 5.0 if not use_rotor_components else 12.0,
-                            desc='zone decay adjustment parameter independent of yaw')
+                            desc='zone decay adjustment parameter independent of yaw (deg)')
     comp.add_discrete_input('floris_params:bU', 1.66 if not use_rotor_components else 1.3,
                             desc='zone decay adjustment parameter dependent yaw')
     # added
@@ -82,6 +82,110 @@ def add_floris_parameters(comp, use_rotor_components=False):
     # ##################   other   ##################
     comp.add_discrete_input('floris_params:FLORISoriginal', False,
                             desc='override all parameters and use FLORIS as original in first Wind Energy paper')
+
+
+def add_floris_params_IndepVarComps(openmdao_group, use_rotor_components=False):
+    ivc = IndepVarComp()
+
+    # permanently alter defaults here
+
+    # ##################   wake deflection   ##################
+
+    # ## parameters
+    # original model
+
+    ivc.add_discrete_input('floris_params:kd', 0.15 if not use_rotor_components else 0.17,
+                           desc='model parameter that defines the sensitivity of the wake deflection '
+                           'to yaw')
+
+    ivc.add_discrete_input('floris_params:initialWakeDisplacement', -4.5,
+                           desc='defines the wake at the rotor to be slightly offset from the rotor. '
+                           'This is necessary for tuning purposes')
+
+    ivc.add_discrete_input('floris_params:bd', -0.01,
+                           desc='defines rate of wake displacement if initialWakeAngle is not used')
+
+    # added
+    ivc.add_discrete_input('floris_params:initialWakeAngle', 1.5,
+                           desc='sets how angled the wake flow should be at the rotor')
+
+    # ## flags
+    ivc.add_discrete_input('floris_params:useWakeAngle', False if not use_rotor_components else True,
+                           desc='define whether an initial angle or initial offset should be used for'
+                           'wake center. If True, then bd will be ignored and initialWakeAngle '
+                           'will be used. The reverse is also true')
+
+    # ##################   wake expansion   ##################
+
+    # ## parameters
+    # original model
+    ivc.add_discrete_input('floris_params:ke', 0.065 if not use_rotor_components else 0.05,
+                           desc='parameter defining overall wake expansion')
+
+    ivc.add_discrete_input('floris_params:me', np.array([-0.5, 0.22, 1.0]) if not use_rotor_components else np.array([-0.5, 0.3, 1.0]),
+                           desc='parameters defining relative zone expansion. Mixing zone (me[2]) '
+                           'must always be 1.0')
+
+    # ## flags
+    ivc.add_discrete_input('floris_params:adjustInitialWakeDiamToYaw', False,
+                           desc='if True then initial wake diameter will be set to '
+                           'rotorDiameter*cos(yaw)')
+
+    # ##################   wake velocity   ##################
+
+    # ## parameters
+    # original model
+    ivc.add_discrete_input('floris_params:MU', np.array([0.5, 1.0, 5.5]),
+                           desc='velocity deficit decay rates for each zone. Middle zone must always '
+                           'be 1.0')
+
+    ivc.add_discrete_input('floris_params:aU', 5.0 if not use_rotor_components else 12.0,
+                           desc='zone decay adjustment parameter independent of yaw (deg)')
+
+    ivc.add_discrete_input('floris_params:bU', 1.66 if not use_rotor_components else 1.3,
+                           desc='zone decay adjustment parameter dependent yaw')
+
+    # added
+    ivc.add_discrete_input('floris_params:cos_spread', 2.0,
+                           desc='spread of cosine smoothing factor (multiple of sum of wake and '
+                           'rotor radii)')
+
+    ivc.add_discrete_input('floris_params:keCorrArray', 0.0,
+                           desc='multiplies the ke value by 1+keCorrArray*(sum of rotors relative '
+                           'overlap with inner two zones for including array affects')
+
+    ivc.add_discrete_input('floris_params:keCorrCT', 0.0,
+                           desc='adjust ke by adding a precentage of the difference of CT and ideal '
+                           'CT as defined in Region2CT')
+
+    ivc.add_discrete_input('floris_params:Region2CT', 4.0*(1.0/3.0)*(1.0-(1.0/3.0)),
+                           desc='defines ideal CT value for use in adjusting ke to yaw adjust CT if '
+                           'keCorrCT>0.0')
+
+    # flags
+    ivc.add_discrete_input('floris_params:axialIndProvided',
+                           True if not use_rotor_components else False,
+                           desc='if axial induction is not provided, then it will be calculated based '
+                           'on CT')
+
+    ivc.add_discrete_input('floris_params:useaUbU', True,
+                           desc='if True then zone velocity decay rates (MU) will be adjusted based '
+                           'on yaw')
+
+    # ################   Visualization   ###########################
+    # shear layer (only influences visualization)
+    ivc.add_discrete_input('floris_params:shearCoefficientAlpha', 0.10805)
+
+    ivc.add_discrete_input('floris_params:shearZh', 90.0)
+
+    # ##################   other   ##################
+    # this is currently not used. Defaults to original if use_rotor_components=False
+    ivc.add_discrete_input('floris_params:FLORISoriginal', False,
+                           desc='override all parameters and use FLORIS as original in Gebraad et al.'
+                           '2014, Wind plant power optimization through yaw control using a '
+                           'parametric model for wake effect-a CFD simulation study')
+
+    openmdao_group.add_subsystem('floris_params', ivc, promotes_outputs=['*'])
 
 
 class Floris(om.ExplicitComponent):
@@ -160,15 +264,15 @@ class Floris(om.ExplicitComponent):
         if nSamples > 0:
             # visualization input
             self.add_discrete_input('wsPositionXw', np.zeros(nSamples),
-                           desc='downwind position of desired measurements in wind ref. frame')
+                           desc='downwind position of desired measurements in wind ref. frame (m)')
             self.add_discrete_input('wsPositionYw', np.zeros(nSamples),
-                           desc='crosswind position of desired measurements in wind ref. frame')
+                           desc='crosswind position of desired measurements in wind ref. frame (m)')
             self.add_discrete_input('wsPositionZ', np.zeros(nSamples),
-                           desc='position of desired measurements in wind ref. frame')
+                           desc='position of desired measurements in wind ref. frame (m)')
 
             # visualization output
             self.add_discrete_output('wsArray%i' % direction_id, np.zeros(nSamples),
-                                     desc='wind speed at measurement locations')
+                                     desc='wind speed at measurement locations (m/s)')
 
         # Derivatives
         if differentiable:
