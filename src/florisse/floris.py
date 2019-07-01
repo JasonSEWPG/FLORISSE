@@ -276,6 +276,9 @@ class Floris(om.ExplicitComponent):
             self.declare_partials(of='*', wrt='*', method='fd', form='forward', step=1.0e-6,
                                   step_calc='rel')
 
+        # Can't complex step across the compiled fortran functions
+        self.set_check_partial_options(wrt='*', method='fd')
+
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         opt = self.options
         direction_id = opt['direction_id']
@@ -356,8 +359,6 @@ class Floris(om.ExplicitComponent):
                                                Region2CT, keCorrArray, useWakeAngle,
                                                adjustInitialWakeDiamToYaw, axialIndProvided, useaUbU, wsPositionXYZw,
                                                shearCoefficientAlpha, shearZh)
-
-            outputs['wakeCentersZT'] = wakeCentersZT
 
         else:
             # call to fortran code to obtain output values
