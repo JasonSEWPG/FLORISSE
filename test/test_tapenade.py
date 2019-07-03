@@ -1,13 +1,17 @@
+from __future__ import print_function, division, absolute_import
+
 import unittest
-from openmdao.api import pyOptSparseDriver, Problem, Group, IndepVarComp
-from florisse.floris import Floris
+
 import numpy as np
+
+import openmdao.api as om
+from florisse.floris import Floris
 
 
 class TotalDerivTestsFlorisAEP(unittest.TestCase):
 
     def setUp(self):
-        print 'Test FLORIS TAPENADE derivatives'
+        print('Test FLORIS TAPENADE derivatives')
         nTurbines = 3
         self.rtol = 1E-6
         self.atol = 1E-6
@@ -35,32 +39,33 @@ class TotalDerivTestsFlorisAEP(unittest.TestCase):
         z0 = 0.
         zref = 50.
 
-        prob = Problem()
-        root = prob.root = Group()
+        prob = om.Problem()
+        model = prob.model
 
-        root.add('turbineXw', IndepVarComp('turbineXw', turbineX), promotes=['*'])
-        root.add('turbineYw', IndepVarComp('turbineYw', turbineY), promotes=['*'])
-        root.add('yaw0', IndepVarComp('yaw0', yaw), promotes=['*'])
-        root.add('hubHeight', IndepVarComp('hubHeight', hubHeight), promotes=['*'])
-        root.add('rotorDiameter', IndepVarComp('rotorDiameter', rotorDiameter), promotes=['*'])
+        ivc = om.IndepVarComp()
+        ivc.add_output('turbineXw', turbineX)
+        ivc.add_output('turbineYw', turbineY)
+        ivc.add_output('yaw0', yaw)
+        ivc.add_output('hubHeight', hubHeight)
+        ivc.add_output('rotorDiameter', rotorDiameter)
+
+        model.add_subsystem('desvar', ivc, promotes=['*'])
 
 
-        root.add('floris', Floris(nTurbines, differentiable=True, use_rotor_components=False, nSamples=0,
-                 verbose=False),promotes=['*'])
+        model.add_subsystem('floris', Floris(nTurbines=nTurbines, differentiable=True, use_rotor_components=False,
+                                             nSamples=0, verbose=False),promotes=['*'])
 
         # set up optimizer
-        prob.driver = pyOptSparseDriver()
+        prob.driver = om.pyOptSparseDriver()
         prob.driver.options['optimizer'] = 'SNOPT'
-        prob.driver.add_objective('wtVelocity0', scaler=1.0)
+        model.add_objective('wtVelocity0', scaler=1.0)
 
         # select design variables
-        prob.driver.add_desvar('turbineXw', scaler=1.0)
-        prob.driver.add_desvar('turbineYw', scaler=1.0)
-        prob.driver.add_desvar('hubHeight', scaler=1.0)
-        prob.driver.add_desvar('yaw0', scaler=1.0)
-        prob.driver.add_desvar('rotorDiameter', scaler=1.0)
-
-        prob.root.ln_solver.options['single_voi_relevance_reduction'] = True
+        model.add_design_var('turbineXw', scaler=1.0)
+        model.add_design_var('turbineYw', scaler=1.0)
+        model.add_design_var('hubHeight', scaler=1.0)
+        model.add_design_var('yaw0', scaler=1.0)
+        model.add_design_var('rotorDiameter', scaler=1.0)
 
         # initialize problem
         prob.setup()
@@ -80,43 +85,48 @@ class TotalDerivTestsFlorisAEP(unittest.TestCase):
         prob['floris_params:z0'] = z0
 
         # run problem
-        prob.run_once()
+        prob.run_model()
 
-        print prob['wtVelocity0']
+        print(prob['wtVelocity0'])
 
         # pass results to self for use with unit test
-        self.J = prob.check_total_derivatives(out_stream=None)
+        self.J = prob.check_totals(out_stream=None)
         self.nDirections = nDirections
 
-        print 'Check derivatives'
-        print 'wrt turbineXw'
-        print 'FD: ', self.J[('wtVelocity0', 'turbineXw')]['J_fd']
-        print 'FWD: ', self.J[('wtVelocity0', 'turbineXw')]['J_rev']
+        print('Check derivatives')
+        print('wrt turbineXw')
+        print('FD: ', self.J[('floris.wtVelocity0', 'desvar.turbineXw')]['J_fd'])
+        print('FWD: ', self.J[('floris.wtVelocity0', 'desvar.turbineXw')]['J_fwd'])
 
-        print 'wrt turbineYw'
-        print 'FD: ', self.J[('wtVelocity0', 'turbineYw')]['J_fd']
-        print 'FWD: ', self.J[('wtVelocity0', 'turbineYw')]['J_rev']
+        print('wrt turbineYw')
+        print('FD: ', self.J[('floris.wtVelocity0', 'desvar.turbineYw')]['J_fd'])
+        print('FWD: ', self.J[('floris.wtVelocity0', 'desvar.turbineYw')]['J_fwd'])
 
-        print 'wrt hubHeight'
-        print 'FD: ', self.J[('wtVelocity0', 'hubHeight')]['J_fd']
-        print 'FWD: ', self.J[('wtVelocity0', 'hubHeight')]['J_rev']
+        print('wrt hubHeight')
+        print('FD: ', self.J[('floris.wtVelocity0', 'desvar.hubHeight')]['J_fd'])
+        print('FWD: ', self.J[('floris.wtVelocity0', 'desvar.hubHeight')]['J_fwd'])
 
-        print 'wrt yaw0'
-        print 'FD: ', self.J[('wtVelocity0', 'yaw0')]['J_fd']
-        print 'FWD: ', self.J[('wtVelocity0', 'yaw0')]['J_rev']
+        print('wrt yaw0')
+        print('FD: ', self.J[('floris.wtVelocity0', 'desvar.yaw0')]['J_fd'])
+        print('FWD: ', self.J[('floris.wtVelocity0', 'desvar.yaw0')]['J_fwd'])
 
-        print 'wrt rotorDiameter'
-        print 'FD: ', self.J[('wtVelocity0', 'rotorDiameter')]['J_fd']
-        print 'FWD: ', self.J[('wtVelocity0', 'rotorDiameter')]['J_rev']
+        print('wrt rotorDiameter')
+        print('FD: ', self.J[('floris.wtVelocity0', 'desvar.rotorDiameter')]['J_fd'])
+        print('FWD: ', self.J[('floris.wtVelocity0', 'desvar.rotorDiameter')]['J_fwd'])
 
 
     def testObj(self):
 
-        np.testing.assert_allclose(self.J[('wtVelocity0', 'turbineXw')]['J_rev'], self.J[('wtVelocity0', 'turbineXw')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J[('wtVelocity0', 'turbineYw')]['J_rev'], self.J[('wtVelocity0', 'turbineYw')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J[('wtVelocity0', 'hubHeight')]['J_rev'], self.J[('wtVelocity0', 'hubHeight')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J[('wtVelocity0', 'yaw0')]['J_rev'], self.J[('wtVelocity0', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J[('wtVelocity0', 'rotorDiameter')]['J_rev'], self.J[('wtVelocity0', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('floris.wtVelocity0', 'desvar.turbineXw')]['J_fwd'],
+                                   self.J[('floris.wtVelocity0', 'desvar.turbineXw')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('floris.wtVelocity0', 'desvar.turbineYw')]['J_fwd'],
+                                   self.J[('floris.wtVelocity0', 'desvar.turbineYw')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('floris.wtVelocity0', 'desvar.hubHeight')]['J_fwd'],
+                                   self.J[('floris.wtVelocity0', 'desvar.hubHeight')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('floris.wtVelocity0', 'desvar.yaw0')]['J_fwd'],
+                                   self.J[('floris.wtVelocity0', 'desvar.yaw0')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J[('floris.wtVelocity0', 'desvar.rotorDiameter')]['J_fwd'],
+                                   self.J[('floris.wtVelocity0', 'desvar.rotorDiameter')]['J_fd'], self.rtol, self.atol)
 
 
 if __name__ == "__main__":
