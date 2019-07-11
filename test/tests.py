@@ -5,6 +5,7 @@ from openmdao.api import pyOptSparseDriver, Problem
 from plantenergy.floris import *
 from plantenergy.OptimizationGroups import *
 from plantenergy.GeneralWindFarmComponents import calculate_boundary
+from plantenergy import config
 
 import cPickle as pickle
 
@@ -42,7 +43,7 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
         yaw = np.random.rand(nTurbines)*60. - 30.
 
         # Define flow properties
-        nDirections = 50.0
+        nDirections = 50
         windSpeeds = np.random.rand(nDirections)*20        # m/s
         air_density = 1.1716    # kg/m^3
         windDirections = np.random.rand(nDirections)*360.0
@@ -72,8 +73,8 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
             prob.driver.add_desvar('yaw%i' % direction_id, lower=-30.0, upper=30.0, scaler=1.0)
 
         # add constraints
-        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1)*nTurbines/2)))
-        prob.driver.add_constraint('boundaryDistances', lower=np.zeros(nVertices*nTurbines), scaler=1.0)
+        prob.driver.add_constraint('sc', lower=np.zeros(int((nTurbines-1)*nTurbines/2)))
+        prob.driver.add_constraint('boundaryDistances', lower=np.zeros(int(nVertices*nTurbines)), scaler=1.0)
 
 
         # initialize problem
@@ -92,7 +93,7 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
         prob['air_density'] = air_density
         prob['windDirections'] = windDirections
         prob['windFrequencies'] = windFrequencies
-        prob['floris_params:FLORISoriginal'] = True
+        prob['model_params:FLORISoriginal'] = True
 
         # provide values for hull constraint
         prob['boundaryVertices'] = boundaryVertices
@@ -147,7 +148,7 @@ class TotalDerivTestsFlorisAEPOptRotor(unittest.TestCase):
         yaw = np.random.rand(nTurbines)*60. - 30.
 
         # Define flow properties
-        nDirections = 50.0
+        nDirections = 50
         windSpeeds = np.random.rand(nDirections)*20        # m/s
         air_density = 1.1716    # kg/m^3
         windDirections = np.random.rand(nDirections)*360.0
@@ -171,13 +172,13 @@ class TotalDerivTestsFlorisAEPOptRotor(unittest.TestCase):
         # prob.driver.opt_settings['Major iterations limit'] = 1
 
         # select design variables
-        prob.driver.add_desvar('turbineX', lower=np.ones(nTurbines)*min(turbineX), upper=np.ones(nTurbines)*max(turbineX), scaler=1E-2)
-        prob.driver.add_desvar('turbineY', lower=np.ones(nTurbines)*min(turbineY), upper=np.ones(nTurbines)*max(turbineY), scaler=1E-2)
+        prob.driver.add_desvar('turbineX', lower=np.ones(int(nTurbines))*min(turbineX), upper=np.ones(int(nTurbines))*max(turbineX), scaler=1E-2)
+        prob.driver.add_desvar('turbineY', lower=np.ones(int(nTurbines))*min(turbineY), upper=np.ones(int(nTurbines))*max(turbineY), scaler=1E-2)
         for direction_id in range(0, windDirections.size):
             prob.driver.add_desvar('yaw%i' % direction_id, lower=-30.0, upper=30.0, scaler=1E-1)
 
         # add constraints
-        prob.driver.add_constraint('sc', lower=np.zeros(((nTurbines-1)*nTurbines/2)))
+        prob.driver.add_constraint('sc', lower=np.zeros(int((nTurbines-1)*nTurbines/2)))
 
         # initialize problem
         prob.setup()
@@ -196,18 +197,18 @@ class TotalDerivTestsFlorisAEPOptRotor(unittest.TestCase):
         prob['air_density'] = air_density
         prob['windDirections'] = windDirections
         prob['windFrequencies'] = windFrequencies
-        prob['floris_params:FLORISoriginal'] = False
+        prob['model_params:FLORISoriginal'] = False
         prob['gen_params:windSpeedToCPCT_CP'] = NREL5MWCPCT['CP']
         prob['gen_params:windSpeedToCPCT_CT'] = NREL5MWCPCT['CT']
         prob['gen_params:windSpeedToCPCT_wind_speed'] = NREL5MWCPCT['wind_speed']
-        prob['floris_params:ke'] = 0.05
-        prob['floris_params:kd'] = 0.17
-        prob['floris_params:aU'] = 12.0
-        prob['floris_params:bU'] = 1.3
-        prob['floris_params:initialWakeAngle'] = 1.5
-        prob['floris_params:useaUbU'] = True
-        prob['floris_params:useWakeAngle'] = True
-        prob['floris_params:adjustInitialWakeDiamToYaw'] = False
+        prob['model_params:ke'] = 0.05
+        prob['model_params:kd'] = 0.17
+        prob['model_params:aU'] = 12.0
+        prob['model_params:bU'] = 1.3
+        prob['model_params:initialWakeAngle'] = 1.5
+        prob['model_params:useaUbU'] = True
+        prob['model_params:useWakeAngle'] = True
+        prob['model_params:adjustInitialWakeDiamToYaw'] = False
         # run problem
         prob.run()
 
@@ -315,7 +316,7 @@ class GradientTestsFLORIS(unittest.TestCase):
         prob['air_density'] = air_density
         prob['windDirections'] = np.array([wind_direction])
         prob['windFrequencies'] = np.array([wind_frequency])
-        prob['floris_params:FLORISoriginal'] = False
+        prob['model_params:FLORISoriginal'] = False
 
         # run problem
         prob.run()
@@ -327,13 +328,13 @@ class GradientTestsFLORIS(unittest.TestCase):
 
     def testWindFrameGrads_turbineXw(self):
 
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_1'][('turbineXw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_1'][('turbineXw', 'turbineX')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_1'][('turbineXw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_1'][('turbineXw', 'turbineY')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineX')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineY')]['J_fd'], self.rtol, self.atol)
 
     def testWindFrameGrads_turbineYw(self):
 
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_1'][('turbineYw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_1'][('turbineYw', 'turbineX')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_1'][('turbineYw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_1'][('turbineYw', 'turbineY')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineX')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineY')]['J_fd'], self.rtol, self.atol)
 
 
 class GradientTestsCtCp(unittest.TestCase):
@@ -383,7 +384,7 @@ class GradientTestsCtCp(unittest.TestCase):
         prob['windFrequencies'] = np.array([wind_frequency])
         prob['air_density'] = air_density
         prob['windDirections'] = np.array([wind_direction])
-        prob['floris_params:FLORISoriginal'] = False
+        prob['model_params:FLORISoriginal'] = False
 
         # run problem
         prob.run()
@@ -451,20 +452,20 @@ class GradientTestsCtCpRotor(unittest.TestCase):
         prob['windFrequencies'] = np.array([wind_frequency])
         prob['air_density'] = air_density
         prob['windDirections'] = np.array([wind_direction])
-        prob['floris_params:FLORISoriginal'] = True
+        prob['model_params:FLORISoriginal'] = True
 
         # values for rotor coupling
         prob['gen_params:windSpeedToCPCT_CP'] = NREL5MWCPCT['CP']
         prob['gen_params:windSpeedToCPCT_CT'] = NREL5MWCPCT['CT']
         prob['gen_params:windSpeedToCPCT_wind_speed'] = NREL5MWCPCT['wind_speed']
-        prob['floris_params:ke'] = 0.05
-        prob['floris_params:kd'] = 0.17
-        prob['floris_params:aU'] = 12.0
-        prob['floris_params:bU'] = 1.3
-        prob['floris_params:initialWakeAngle'] = 3.0
-        prob['floris_params:useaUbU'] = True
-        prob['floris_params:useWakeAngle'] = True
-        prob['floris_params:adjustInitialWakeDiamToYaw'] = False
+        prob['model_params:ke'] = 0.05
+        prob['model_params:kd'] = 0.17
+        prob['model_params:aU'] = 12.0
+        prob['model_params:bU'] = 1.3
+        prob['model_params:initialWakeAngle'] = 3.0
+        prob['model_params:useaUbU'] = True
+        prob['model_params:useWakeAngle'] = True
+        prob['model_params:adjustInitialWakeDiamToYaw'] = False
 
         # run problem
         prob.run()
@@ -473,12 +474,12 @@ class GradientTestsCtCpRotor(unittest.TestCase):
         self.J = prob.check_partial_derivatives(out_stream=None)
 
     def testCtCpRotor_Cp_out(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.CtCp'][('Cp_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.CtCp'][('Cp_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.CtCp'][('Cp_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.CtCp'][('Cp_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
 
     def testCtCpRotor_Ct_out(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.CtCp'][('Ct_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.CtCp'][('Ct_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.CtCp'][('Ct_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.CtCp'][('Ct_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
 
 
 class GradientTestsPower(unittest.TestCase):
@@ -528,7 +529,7 @@ class GradientTestsPower(unittest.TestCase):
         prob['windFrequencies'] = np.array([wind_frequency])
         prob['air_density'] = air_density
         prob['windDirections'] = np.array([wind_direction])
-        prob['floris_params:FLORISoriginal'] = False
+        prob['model_params:FLORISoriginal'] = False
 
         # run problem
         prob.run()
@@ -597,7 +598,7 @@ class GradientTestsFlorisUnifiedBV(unittest.TestCase):
         prob['windFrequencies'] = np.array([wind_frequency])
         prob['air_density'] = air_density
         prob['windDirections'] = np.array([wind_direction])
-        prob['floris_params:FLORISoriginal'] = False
+        prob['model_params:FLORISoriginal'] = False
 
         # run problem
         prob.run()
@@ -608,13 +609,23 @@ class GradientTestsFlorisUnifiedBV(unittest.TestCase):
         config.floris_single_component = False
         config.BV = True
 
-    def testUnified_wtVelocity(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'turbineXw')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'turbineXw')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'turbineYw')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'turbineYw')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'rotorDiameter')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'Ct')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'Ct')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'axialInduction')]['J_fwd'], self.J['all_directions.direction_group0.myFloris.f_0'][('wtVelocity0', 'axialInduction')]['J_fd'], self.rtol, self.atol)
+    def testUnified_wtVelocity_x(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'turbineXw')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'turbineXw')]['J_fd'], self.rtol, self.atol)
+
+    def testUnified_wtVelocity_y(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'turbineYw')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'turbineYw')]['J_fd'], self.rtol, self.atol)
+
+    def testUnified_wtVelocity_yaw(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'yaw0')]['J_fd'], self.rtol, self.atol)
+
+    def testUnified_wtVelocity_diam(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'rotorDiameter')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
+
+    def testUnified_wtVelocity_ct(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'Ct')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'Ct')]['J_fd'], self.rtol, self.atol)
+
+    def testUnified_wtVelocity_a(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'axialInduction')]['J_fwd'], self.J['all_directions.direction_group0.myModel.floris_model'][('wtVelocity0', 'axialInduction')]['J_fd'], self.rtol, self.atol)
 
 
 if __name__ == "__main__":
