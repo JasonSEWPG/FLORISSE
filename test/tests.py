@@ -109,21 +109,23 @@ class TotalDerivTestsFlorisAEPOpt(unittest.TestCase):
 
         # print(self.J)
 
-    def testObj(self):
-
+    def testObj_wrt_x(self):
         np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineX')]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineX')]['rel error'], self.rtol, self.atol)
+
+    def testObj_wrt_y(self):
         np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineY')]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineY')]['rel error'], self.rtol, self.atol)
+    def testObj_wrt_yaw(self):
         for dir in np.arange(0, self.nDirections):
             np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.rtol, self.atol)
 
-    def testSpacingCon(self):
-
+    def testSpacingCon_sc_wrt_x(self):
         np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineX')]['rel error'], self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineX')]['rel error'], self.rtol, self.atol)
+    def testSpacingCon_wrt_y(self):
         np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineY')]['rel error'], self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineY')]['rel error'], self.rtol, self.atol)
 
-    def testBoundaryCon(self):
-
+    def testBoundaryCon_distance_wrt_x(self):
         np.testing.assert_allclose(self.J[('boundary_con.boundaryDistances', 'AEPgroup.desvars.turbineX')]['rel error'], self.J[('boundary_con.boundaryDistances', 'AEPgroup.desvars.turbineX')]['rel error'], self.rtol, self.atol)
+    def testBoundaryCon_distance_wrt_y(self):
         np.testing.assert_allclose(self.J[('boundary_con.boundaryDistances', 'AEPgroup.desvars.turbineY')]['rel error'], self.J[('boundary_con.boundaryDistances', 'AEPgroup.desvars.turbineY')]['rel error'], self.rtol, self.atol)
 
 
@@ -221,19 +223,21 @@ class TotalDerivTestsFlorisAEPOptRotor(unittest.TestCase):
 
         # print(self.J)
 
-    def testObj(self):
-
+    def testObj_wrt_x(self):
         np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineX')]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineX')]['rel error'], self.rtol, self.atol)
+    def testObj_wrt_y(self):
         np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineY')]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.desvars.turbineY')]['rel error'], self.rtol, self.atol)
+    def testObj_wrt_yaw(self):
         for dir in np.arange(0, self.nDirections):
             np.testing.assert_allclose(self.J[('obj_comp.obj', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.J[('obj_comp.obj', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.rtol, self.atol)
 
-    def testCon(self):
-
+    def testCon_sc_wrt_x(self):
         np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineX')]['rel error'], self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineX')]['rel error'], self.rtol, self.atol)
+    def testCon_sc_wrt_y(self):
         np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineY')]['rel error'], self.J[('spacing_con.sc', 'AEPgroup.desvars.turbineY')]['rel error'], self.rtol, self.atol)
+    def testCon_sc_wrt_yaw(self):
         for dir in np.arange(0, self.nDirections):
-            np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.J[('spacing_consc', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.rtol, self.atol)
+            np.testing.assert_allclose(self.J[('spacing_con.sc', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.J[('spacing_con.sc', 'AEPgroup.y_ivc.yaw%i' % dir)]['rel error'], self.rtol, self.atol)
 
 
 class GradientTestsFLORIS(unittest.TestCase):
@@ -331,14 +335,16 @@ class GradientTestsFLORIS(unittest.TestCase):
 
         print(self.J)
 
-    def testWindFrameGrads_turbineXw(self):
-
+    def testWindFrameGrads_xw_wrt_x(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineX')]['J_fd'], self.rtol, self.atol)
+
+    def testWindFrameGrads_xw_wrt_y(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineXw', 'turbineY')]['J_fd'], self.rtol, self.atol)
 
-    def testWindFrameGrads_turbineYw(self):
-
+    def testWindFrameGrads_yw_wrt_x(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineX')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineX')]['J_fd'], self.rtol, self.atol)
+
+    def testWindFrameGrads_yw_wrt_y(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineY')]['J_fwd'], self.J['all_directions.direction_group0.directionConversion'][('turbineYw', 'turbineY')]['J_fd'], self.rtol, self.atol)
 
 
@@ -398,15 +404,18 @@ class GradientTestsCtCp(unittest.TestCase):
 
         # pass gradient test results to self for use with unit tests
         self.J = prob.check_partials(out_stream=None)
+        # print(J)
 
-    def testCtCp_Ct_out(self):
+    def testCtCp_Ct_out_wrt_Ct_in(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'Ct_in')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'Ct_in')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'Cp_in')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'Cp_in')]['J_fd'], self.rtol, self.atol)
+
+    def testCtCp_Ct_out_wrt_yaw(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Ct_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
 
-    def testCtCp_Cp_out(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'Ct_in')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'Ct_in')]['J_fd'], self.rtol, self.atol)
+    def testCtCp_Cp_out_wrt_Cp_in(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'Cp_in')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'Cp_in')]['J_fd'], self.rtol, self.atol)
+
+    def testCtCp_Cp_out_wrt_yaw(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.CtCp'][('Cp_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
 
 
@@ -481,14 +490,19 @@ class GradientTestsCtCpRotor(unittest.TestCase):
 
         # pass gradient test results to self for use with unit tests
         self.J = prob.check_partials(out_stream=None)
+        print(self.J)
+    #
+    def testCtCpRotor_Cp_out_wrt_yaw(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
 
-    def testCtCpRotor_Cp_out(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.CtCp'][('Cp_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myModel.CtCp'][('Cp_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.CtCp'][('Cp_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.myModel.CtCp'][('Cp_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+    def testCtCpRotor_Cp_out_wrt_wtVelocity(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Cp_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
 
-    def testCtCpRotor_Ct_out(self):
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.CtCp'][('Ct_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.myModel.CtCp'][('Ct_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
-        np.testing.assert_allclose(self.J['all_directions.direction_group0.myModel.CtCp'][('Ct_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.myModel.CtCp'][('Ct_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+    def testCtCpRotor_Ct_out_wrt_yaw(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'yaw0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'yaw0')]['J_fd'], self.rtol, self.atol)
+
+    def testCtCpRotor_Ct_out_wrt_wtVelocity(self):
+        np.testing.assert_allclose(self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.rotorGroup.CtCp'][('Ct_out', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
 
 
 class GradientTestsPower(unittest.TestCase):
@@ -547,14 +561,18 @@ class GradientTestsPower(unittest.TestCase):
         # pass gradient test results to self for use with unit tests
         self.J = prob.check_partials(out_stream=None)
 
-    def testPower_wtPower(self):
+    def testPower_wtPower_wrt_wtVelocity(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+    def testPower_wtPower_wrt_cp(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'Cp')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'Cp')]['J_fd'], self.rtol, self.atol)
+    def testPower_wtPower_wrt_rotorDiameter(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'rotorDiameter')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('wtPower0', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
 
-    def testPower_totalpower(self):
+    def testPower_dirpower_wrt_wtVelocity(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'wtVelocity0')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'wtVelocity0')]['J_fd'], self.rtol, self.atol)
+    def testPower_dirpower_wrt_cp(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'Cp')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'Cp')]['J_fd'], self.rtol, self.atol)
+    def testPower_dirpower_wrt_rotro_diam(self):
         np.testing.assert_allclose(self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'rotorDiameter')]['J_fwd'], self.J['all_directions.direction_group0.powerComp'][('dir_power0', 'rotorDiameter')]['J_fd'], self.rtol, self.atol)
 
 
