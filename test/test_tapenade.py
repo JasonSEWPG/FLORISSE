@@ -56,8 +56,8 @@ class TotalDerivTestsFlorisAEP(unittest.TestCase):
                                              nSamples=0, verbose=False),promotes=['*'])
 
         # set up optimizer
-        prob.driver = om.pyOptSparseDriver()
-        prob.driver.options['optimizer'] = 'SNOPT'
+        # prob.driver = om.pyOptSparseDriver()
+        # prob.driver.options['optimizer'] = 'SNOPT'
         model.add_objective('wtVelocity0', scaler=1.0)
 
         # select design variables
