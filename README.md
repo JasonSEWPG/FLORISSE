@@ -21,9 +21,9 @@ README for FLORIS in OpenMDAOv1.5+
 ##  system requirements  
     gfortran  
     gcc  
-    python 2.7.x  
+    python 3.7.x  
     numpy  
-    openmdao >= v1.5  
+    openmdao >= v2.8  
 ### from top repo directory run  
     $ python setup.py install --record installedfiles.txt  
 ### uninstall with  
@@ -33,9 +33,9 @@ README for FLORIS in OpenMDAOv1.5+
 ### system requirements  
     gfortran  
     gcc  
-    python 2.7.x  
+    python 3.7.x  
     numpy  
-    openmdao >= v1.5  
+    openmdao >= v2.8  
 ### run the following commands from src/florisse:  
     $ gfortran -c adBuffer.f  
     $ gcc -c adStack.c  
@@ -47,9 +47,9 @@ README for FLORIS in OpenMDAOv1.5+
     gfortran  
     gcc  
     mingw  
-    python 2.7.x  
+    python 3.7.x  
     numpy  
-    openmdao >= v01.5 
+    openmdao >= v2.8 
 ### run the following commands from src\florisse:  
     $ gfortran -c adBuffer.f  
     $ gcc -c adStack.c  
